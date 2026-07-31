@@ -1,0 +1,175 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Audiowide&family=Poppins:wght@300;400;500;600;700;800&display=swap');
+
+@layer base {
+  :root {
+    --background: 210 29% 97%;
+    --foreground: 209 76% 17%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 209 76% 17%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 209 76% 17%;
+
+    --primary: 209 76% 17%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 45 100% 51%;
+    --secondary-foreground: 209 76% 17%;
+
+    --muted: 210 20% 90%;
+    --muted-foreground: 209 30% 40%;
+
+    --accent: 45 100% 51%;
+    --accent-foreground: 209 76% 17%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 210 20% 85%;
+    --input: 210 20% 85%;
+    --ring: 45 100% 51%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 209 76% 17%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 45 100% 51%;
+    --sidebar-primary-foreground: 209 76% 17%;
+    --sidebar-accent: 209 60% 25%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 209 60% 25%;
+    --sidebar-ring: 45 100% 51%;
+
+    --navy: 209 76% 17%;
+    --gold: 45 100% 51%;
+    --gold-light: 45 100% 70%;
+    --navy-light: 209 60% 25%;
+  }
+
+  .dark {
+    --background: 209 76% 10%;
+    --foreground: 0 0% 95%;
+    --card: 209 76% 14%;
+    --card-foreground: 0 0% 95%;
+    --popover: 209 76% 14%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 45 100% 51%;
+    --primary-foreground: 209 76% 17%;
+    --secondary: 209 60% 25%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 209 40% 20%;
+    --muted-foreground: 210 20% 65%;
+    --accent: 45 100% 51%;
+    --accent-foreground: 209 76% 17%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 95%;
+    --border: 209 40% 25%;
+    --input: 209 40% 25%;
+    --ring: 45 100% 51%;
+    --sidebar-background: 209 76% 10%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 45 100% 51%;
+    --sidebar-primary-foreground: 209 76% 17%;
+    --sidebar-accent: 209 60% 20%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 209 60% 20%;
+    --sidebar-ring: 45 100% 51%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-family: 'Poppins', sans-serif;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-card/80 backdrop-blur-md border border-border/50 rounded-2xl shadow-lg;
+  }
+
+  .gradient-navy {
+    background: linear-gradient(180deg, hsl(var(--navy)) 0%, hsl(var(--navy-light)) 100%);
+  }
+
+  .gradient-splash {
+    background: linear-gradient(180deg, hsl(var(--navy)) 0%, hsl(var(--navy)) 50%, hsl(var(--gold)) 100%);
+  }
+
+  .glow-gold {
+    box-shadow: 0 0 40px hsl(var(--gold) / 0.4), 0 0 80px hsl(var(--gold) / 0.2);
+  }
+
+  .text-gold {
+    color: hsl(var(--gold));
+  }
+
+  .bg-navy {
+    background-color: hsl(var(--navy));
+  }
+
+  .bg-gold {
+    background-color: hsl(var(--gold));
+  }
+
+  .font-cursive {
+    font-family: 'Audiowide', 'Poppins', sans-serif;
+    letter-spacing: 0.02em;
+  }
+
+  .font-brand {
+    font-family: 'Audiowide', 'Poppins', sans-serif;
+    letter-spacing: 0.02em;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 1.2s ease-out forwards;
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 1s ease-out forwards;
+}
+
+.animate-delay-300 {
+  animation-delay: 300ms;
+  opacity: 0;
+}
+
+.animate-delay-600 {
+  animation-delay: 600ms;
+  opacity: 0;
+}
+
+.animate-delay-900 {
+  animation-delay: 900ms;
+  opacity: 0;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
