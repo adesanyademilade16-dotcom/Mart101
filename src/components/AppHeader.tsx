@@ -45,11 +45,6 @@ const AppHeader = () => {
     navigate("/login");
   };
 
-  <Link to="/" className="flex items-center gap-2">
-  <BrandLogo size="sm" />
-  <span className="font-logo text-lg text-gold tracking-wide">MART101</span>
-</Link>
-
   return (
     <header className="sticky top-0 z-40 bg-navy text-white">
       <div className="flex items-center justify-between px-4 py-3">
