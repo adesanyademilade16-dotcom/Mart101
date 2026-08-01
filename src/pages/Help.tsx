@@ -51,7 +51,7 @@ const Help = () => {
           <a href="mailto:Gremdev01@gmail.com" className="block">
             <Button variant="secondary" className="w-full h-14 text-base font-semibold gap-2">
               <Mail className="w-5 h-5" />
-              Gremdev01@gmail.com
+              campusmart101@gmail.com
             </Button>
           </a>
         </div>
