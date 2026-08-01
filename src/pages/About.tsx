@@ -67,20 +67,40 @@ const About = () => {
         {/* Team */}
         <section className="container mx-auto px-4 py-14 max-w-3xl text-center">
           <h2 className="text-2xl font-bold text-foreground mb-3">Built by NexByte</h2>
-          <p className="text-muted-foreground text-sm leading-relaxed max-w-xl mx-auto mb-10">
+          <p className="text-muted-foreground text-sm leading-relaxed max-w-xl mx-auto mb-14">
             MART101 is proudly developed and maintained by NexByte, a team passionate about building practical technology solutions for students.
           </p>
 
-          <div className="glass-card p-8 max-w-lg mx-auto hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
-            <div className="w-16 h-16 rounded-full bg-secondary/15 flex items-center justify-center mx-auto mb-4">
-              <span className="text-secondary font-bold text-xl">NB</span>
+          <div className="flex flex-col items-center">
+            {/* Root node */}
+            <div className="glass-card px-8 py-5 rounded-2xl shadow-lg flex flex-col items-center">
+              <div className="w-14 h-14 rounded-full bg-secondary/15 flex items-center justify-center mb-2">
+                <span className="text-secondary font-bold text-lg">NB</span>
+              </div>
+              <span className="font-bold text-foreground text-lg tracking-wide">NexByte</span>
             </div>
-            <h3 className="font-bold text-foreground text-xl tracking-wide mb-6">NexByte</h3>
 
-            <div className="flex justify-center gap-10 pt-6 border-t border-border/50">
+            {/* Trunk line down from root */}
+            <div className="w-px h-8 bg-border" />
+
+            {/* Horizontal connector bar */}
+            <div className="relative w-full max-w-md">
+              <div className="absolute top-0 left-[16.66%] right-[16.66%] h-px bg-border" />
+            </div>
+
+            {/* Branches */}
+            <div className="flex justify-center gap-12 sm:gap-16 w-full max-w-md">
               {team.map((name) => (
-                <div key={name}>
-                  <p className="font-semibold text-foreground text-sm tracking-wide">{name}</p>
+                <div key={name} className="flex flex-col items-center">
+                  <div className="w-px h-8 bg-border" />
+                  <div className="glass-card px-5 py-4 rounded-xl shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                    <div className="w-10 h-10 rounded-full bg-secondary/15 flex items-center justify-center mx-auto mb-2">
+                      <span className="text-secondary font-bold text-sm">{name[0]}</span>
+                    </div>
+                    <span className="font-semibold text-foreground text-sm tracking-wide whitespace-nowrap">
+                      {name}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
