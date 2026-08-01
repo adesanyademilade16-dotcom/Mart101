@@ -9,6 +9,11 @@ const whyBlocks = [
   { icon: ShieldCheck, title: "Secure", desc: "Admin monitoring and community reporting system." },
 ];
 
+const team = [
+  { name: "GREMDEV", role: "AI Orchestrator" },
+  { name: "CODEX", role: "System Architect" },
+];
+
 const About = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -62,22 +67,29 @@ const About = () => {
           </div>
         </section>
 
-        {/* Founders */}
+        {/* Team */}
         <section className="container mx-auto px-4 py-14 max-w-3xl text-center">
-          <h2 className="text-2xl font-bold text-foreground mb-8">Built by</h2>
-          <div className="flex flex-col sm:flex-row justify-center gap-12">
-            {[
-              { name: "GREMDEV", role: "AI Orchestrator" },
-              { name: "CODEX", role: "System Architect" },
-            ].map((f) => (
-              <div key={f.name} className="bg-card rounded-2xl shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 p-10 flex-1 max-w-xs mx-auto text-center">
-                <div className="w-16 h-16 rounded-full bg-secondary/15 flex items-center justify-center mx-auto mb-5">
-                  <span className="text-secondary font-bold text-xl">{f.name[0]}</span>
+          <h2 className="text-2xl font-bold text-foreground mb-3">Built by NexByte</h2>
+          <p className="text-muted-foreground text-sm leading-relaxed max-w-xl mx-auto mb-10">
+            NexByte is the small team behind MART101 — focused on building simple,
+            reliable tools that make campus life easier for students.
+          </p>
+
+          <div className="glass-card p-8 max-w-md mx-auto hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
+            <div className="w-16 h-16 rounded-full bg-secondary/15 flex items-center justify-center mx-auto mb-4">
+              <span className="text-secondary font-bold text-xl">NB</span>
+            </div>
+            <h3 className="font-bold text-foreground text-xl tracking-wide mb-1">NexByte</h3>
+            <p className="text-muted-foreground text-sm mb-6">Founded by GREMDEV & CODEX</p>
+
+            <div className="flex justify-center gap-10 pt-6 border-t border-border/50">
+              {team.map((m) => (
+                <div key={m.name}>
+                  <p className="font-semibold text-foreground text-sm">{m.name}</p>
+                  <p className="text-muted-foreground text-xs mt-1">{m.role}</p>
                 </div>
-                <h3 className="font-bold text-foreground text-xl tracking-wide">{f.name}</h3>
-                <p className="text-muted-foreground text-sm mt-2">{f.role}</p>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </section>
       </main>
