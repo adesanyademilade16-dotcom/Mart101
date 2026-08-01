@@ -29,6 +29,7 @@ const INFO_LINKS = [
 
 const AppHeader = () => {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
   const { isAdmin } = useAdmin();
   const navigate = useNavigate();
@@ -39,17 +40,22 @@ const AppHeader = () => {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  // Mount the drawer before animating open, and unmount after it animates closed
+  useEffect(() => {
+    if (open) {
+      setMounted(true);
+    } else if (mounted) {
+      const timer = setTimeout(() => setMounted(false), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [open]);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setOpen(false);
     navigate("/login");
   };
 
-<Link to="/" className="flex items-center gap-2">
-  <BrandLogo size="sm" />
-  <span className="font-logo text-lg text-gold tracking-wide">MART101</span>
-</Link>
-  
   return (
     <header className="sticky top-0 z-40 bg-navy text-white">
       <div className="flex items-center justify-between px-4 py-3">
@@ -73,9 +79,13 @@ const AppHeader = () => {
         )}
       </div>
 
-      {open && (
+      {mounted && (
         <div className="fixed inset-0 z-50 flex">
-          <div className="w-72 max-w-[80%] bg-navy text-white h-full overflow-y-auto">
+          <div
+            className={`w-72 max-w-[80%] bg-navy text-white h-full overflow-y-auto transform transition-transform duration-300 ease-in-out ${
+              open ? "translate-x-0" : "-translate-x-full"
+            }`}
+          >
             <div className="flex items-center justify-between px-4 py-4 border-b border-white/10">
               <div className="flex items-center gap-2">
                 <BrandLogo size="sm" />
@@ -129,7 +139,12 @@ const AppHeader = () => {
               )}
             </nav>
           </div>
-          <div className="flex-1 bg-black/50" onClick={() => setOpen(false)} />
+          <div
+            className={`flex-1 bg-black/50 transition-opacity duration-300 ease-in-out ${
+              open ? "opacity-100" : "opacity-0"
+            }`}
+            onClick={() => setOpen(false)}
+          />
         </div>
       )}
     </header>
