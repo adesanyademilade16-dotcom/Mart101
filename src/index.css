@@ -110,6 +110,11 @@
     box-shadow: 0 0 40px hsl(var(--gold) / 0.4), 0 0 80px hsl(var(--gold) / 0.2);
   }
 
+  .font-cursive {
+  font-family: 'Audiowide', 'Poppins', sans-serif;
+  letter-spacing: 0.02em;
+}
+
   .text-gold {
     color: hsl(var(--gold));
   }
