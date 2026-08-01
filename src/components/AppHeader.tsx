@@ -28,8 +28,8 @@ const INFO_LINKS = [
 ];
 
 const AppHeader = () => {
-  const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const [mounted, setMounted] = useState(false); // in the DOM
+  const [visible, setVisible] = useState(false); // slid into view
   const [loggedIn, setLoggedIn] = useState(false);
   const { isAdmin } = useAdmin();
   const navigate = useNavigate();
@@ -40,19 +40,23 @@ const AppHeader = () => {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  // Mount the drawer before animating open, and unmount after it animates closed
-  useEffect(() => {
-    if (open) {
-      setMounted(true);
-    } else if (mounted) {
-      const timer = setTimeout(() => setMounted(false), 300);
-      return () => clearTimeout(timer);
-    }
-  }, [open]);
+  const openMenu = () => {
+    setMounted(true);
+    // wait one frame so the browser paints the closed position first,
+    // then flip to visible so the transition actually animates
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => setVisible(true));
+    });
+  };
+
+  const closeMenu = () => {
+    setVisible(false);
+    setTimeout(() => setMounted(false), 300); // matches duration-300
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    setOpen(false);
+    closeMenu();
     navigate("/login");
   };
 
@@ -60,7 +64,7 @@ const AppHeader = () => {
     <header className="sticky top-0 z-40 bg-navy text-white">
       <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-3">
-          <button onClick={() => setOpen(true)} aria-label="Open menu">
+          <button onClick={openMenu} aria-label="Open menu">
             <Menu className="h-6 w-6" />
           </button>
           <Link to="/" className="flex items-center gap-2">
@@ -83,7 +87,7 @@ const AppHeader = () => {
         <div className="fixed inset-0 z-50 flex">
           <div
             className={`w-72 max-w-[80%] bg-navy text-white h-full overflow-y-auto transform transition-transform duration-300 ease-in-out ${
-              open ? "translate-x-0" : "-translate-x-full"
+              visible ? "translate-x-0" : "-translate-x-full"
             }`}
           >
             <div className="flex items-center justify-between px-4 py-4 border-b border-white/10">
@@ -91,7 +95,7 @@ const AppHeader = () => {
                 <BrandLogo size="sm" />
                 <span className="font-cursive text-gold">MART101</span>
               </div>
-              <button onClick={() => setOpen(false)} aria-label="Close menu">
+              <button onClick={closeMenu} aria-label="Close menu">
                 <X className="h-6 w-6" />
               </button>
             </div>
@@ -100,7 +104,7 @@ const AppHeader = () => {
                 <Link
                   key={link.label}
                   to={link.to}
-                  onClick={() => setOpen(false)}
+                  onClick={closeMenu}
                   className="flex items-center gap-3 px-4 py-3 hover:bg-white/10"
                 >
                   <link.icon className="h-5 w-5 text-gold" />
@@ -110,7 +114,7 @@ const AppHeader = () => {
               {isAdmin && (
                 <Link
                   to={ADMIN_LINK.to}
-                  onClick={() => setOpen(false)}
+                  onClick={closeMenu}
                   className="flex items-center gap-3 px-4 py-3 hover:bg-white/10"
                 >
                   <ADMIN_LINK.icon className="h-5 w-5 text-gold" />
@@ -121,7 +125,7 @@ const AppHeader = () => {
                 <Link
                   key={link.label}
                   to={link.to}
-                  onClick={() => setOpen(false)}
+                  onClick={closeMenu}
                   className="flex items-center gap-3 px-4 py-3 hover:bg-white/10"
                 >
                   <link.icon className="h-5 w-5 text-gold" />
@@ -141,9 +145,9 @@ const AppHeader = () => {
           </div>
           <div
             className={`flex-1 bg-black/50 transition-opacity duration-300 ease-in-out ${
-              open ? "opacity-100" : "opacity-0"
+              visible ? "opacity-100" : "opacity-0"
             }`}
-            onClick={() => setOpen(false)}
+            onClick={closeMenu}
           />
         </div>
       )}
