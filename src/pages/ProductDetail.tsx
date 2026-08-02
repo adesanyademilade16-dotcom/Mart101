@@ -221,7 +221,7 @@ const ProductDetail = () => {
 
             {product.delivery_timeframe && (
               <p className="text-sm text-muted-foreground mt-2">
-                🚚 Delivery timeframe: <span className="font-medium text-foreground">{product.delivery_timeframe}</span>
+               Delivery timeframe: <span className="font-medium text-foreground">{product.delivery_timeframe}</span>
               </p>
             )}
 
