@@ -115,7 +115,7 @@ const Signup = () => {
         <form onSubmit={handleSubmit} noValidate className="glass-card p-6 space-y-4">
           <div>
             <Label htmlFor="fullName">Full Name</Label>
-            <Input id="fullName" name="fullName" required value={form.fullName} onChange={handleChange} placeholder="John Doe" />
+            <Input id="fullName" name="fullName" required value={form.fullName} onChange={handleChange} placeholder="adesewa omotola" />
           </div>
           <div>
             <Label htmlFor="email">Email</Label>
@@ -143,7 +143,7 @@ const Signup = () => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="department">Department</Label>
-              <Input id="department" name="department" required value={form.department} onChange={handleChange} placeholder="Mass communication" />
+              <Input id="department" name="department" required value={form.department} onChange={handleChange} placeholder="Microbiology" />
             </div>
             <div>
               <Label htmlFor="level">Level</Label>
