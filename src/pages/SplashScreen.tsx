@@ -158,10 +158,10 @@ const SplashScreen = () => {
           <div className="container mx-auto max-w-3xl text-center">
             <h2 className="text-2xl font-bold text-foreground mb-4">Marketplace for OOU Students</h2>
             <p className="text-muted-foreground leading-relaxed mb-4">
-              MART101 is a campus buy and sell platform built specifically for Olabisi Onabanjo University (OOU) students. Whether you're looking to sell textbooks, gadgets, or fashion items, MART101 connects you directly with buyers on campus through WhatsApp — making it the easiest student marketplace in Nigeria.
+               Built exclusively for OOU students, MART101 provides a trusted platform for campus commerce and student-to-student connections.
             </p>
             <p className="text-muted-foreground leading-relaxed text-sm mb-6">
-              Campus life at Olabisi Onabanjo University is easier with MART101. Students across all faculties and hostels use our platform to <Link to="/marketplace" className="text-secondary font-medium hover:underline">buy and sell in OOU</Link> — from lecture materials to personal items. Explore the <Link to="/marketplace" className="text-secondary font-medium hover:underline">OOU marketplace</Link> today.
+              Uni life at Olabisi Onabanjo University is easier with MART101. Students across all campus and faculties use our platform to <Link to="/marketplace" className="text-secondary font-medium hover:underline">buy and sell in OOU</Link> from lecture materials to personal items. Explore the <Link to="/marketplace" className="text-secondary font-medium hover:underline">OOU marketplace</Link> today.
             </p>
             <Link to="/about" className="inline-flex items-center gap-1 text-secondary font-semibold hover:underline">
               Learn more about us <ArrowRight className="w-4 h-4" />
