@@ -126,7 +126,7 @@ const Signup = () => {
               required
               value={form.email}
               onChange={handleChange}
-              placeholder="john@university.edu"
+              placeholder="adesewa@gmail.com"
               aria-invalid={!!errors.email}
               aria-describedby={errors.email ? "email-error" : undefined}
             />
@@ -143,11 +143,11 @@ const Signup = () => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="department">Department</Label>
-              <Input id="department" name="department" required value={form.department} onChange={handleChange} placeholder="Computer Science" />
+              <Input id="department" name="department" required value={form.department} onChange={handleChange} placeholder="Mass communication" />
             </div>
             <div>
               <Label htmlFor="level">Level</Label>
-              <Input id="level" name="level" required value={form.level} onChange={handleChange} placeholder="300" />
+              <Input id="level" name="level" required value={form.level} onChange={handleChange} placeholder="200" />
             </div>
           </div>
           <div>
