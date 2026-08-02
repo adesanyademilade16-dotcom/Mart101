@@ -87,13 +87,13 @@ const SplashScreen = () => {
             Buy and Sell Easily in OOU
           </h1>
           <p className="text-primary-foreground/70 text-lg max-w-xl mx-auto mb-4">
-            MART101 is the #1 OOU marketplace for students. Buy, sell, and trade items safely within your campus community — the best student marketplace in Nigeria.
+           MART101 is the dedicated marketplace built exclusively for Olabisi Onabanjo University students. Discover great deals, list your items for sale, or connect with trusted buyers and sellers , all within your campus community.
           </p>
           <p className="text-primary-foreground/60 text-sm max-w-lg mx-auto mb-6">
-            Whether you're in the hostels, across departments, or just need everyday essentials — MART101 connects OOU students for quick, trusted campus deals. From textbooks to gadgets, daily student needs are just a tap away at Olabisi Onabanjo University.
+            Whether you're looking for textbooks, gadgets, fashion items, accommodation essentials, or everyday student needs, MART101 makes campus trading simple, secure, and convenient. Find what you need faster, save money, and connect with fellow OOU students in one trusted marketplace.
           </p>
           <button onClick={() => navigate("/marketplace")} className="bg-secondary text-secondary-foreground font-semibold px-8 py-3 rounded-full hover:bg-secondary/90 transition-colors text-lg">
-            Browse Marketplace
+            Explore Marketplace
           </button>
           <div className="flex justify-center">
             <InstallAppButton />
