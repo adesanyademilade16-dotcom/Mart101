@@ -302,11 +302,11 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="productName">Product Name</Label>
-                <Input id="productName" required value={newProduct.name} onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })} placeholder="Blue Sneakers" />
+                <Input id="productName" required value={newProduct.name} onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })} placeholder="HP probook 11 G2" />
               </div>
               <div>
                 <Label htmlFor="productPrice">Price (₦) — Max ₦{MAX_PRICE.toLocaleString()}</Label>
-                <Input id="productPrice" type="number" min="0" max={MAX_PRICE} step="0.01" required value={newProduct.price} onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })} placeholder="5000" />
+                <Input id="productPrice" type="number" min="0" max={MAX_PRICE} step="0.01" required value={newProduct.price} onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })} placeholder="12000" />
               </div>
             </div>
 
@@ -368,7 +368,7 @@ const Dashboard = () => {
 
             <div>
               <Label htmlFor="productDescription">Product Description (min 10 characters)</Label>
-              <Textarea id="productDescription" required value={newProduct.description} onChange={(e) => { setNewProduct({ ...newProduct, description: e.target.value }); if (e.target.value.trim().length >= 10) setDescriptionError(null); }} placeholder={"HP ProBook 11 G2 x360 EE\nIntel Core m3 – 7th Gen\n128GB SSD | 4GB RAM\nTouchscreen ✅"} className={`min-h-[120px] ${descriptionError ? "border-destructive ring-destructive" : ""}`} />
+              <Textarea id="productDescription" required value={newProduct.description} onChange={(e) => { setNewProduct({ ...newProduct, description: e.target.value }); if (e.target.value.trim().length >= 10) setDescriptionError(null); }} placeholder={"HP ProBook 11 G2 x360 EE\nIntel Core m3 – 7th Gen\n128GB SSD | 4GB RAM\nTouchscreen"} className={`min-h-[120px] ${descriptionError ? "border-destructive ring-destructive" : ""}`} />
               {descriptionError && <p className="text-sm text-destructive mt-1">{descriptionError}</p>}
             </div>
 
