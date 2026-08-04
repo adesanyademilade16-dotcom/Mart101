@@ -296,7 +296,7 @@ const Dashboard = () => {
           </h2>
           <p className="text-sm text-muted-foreground mb-4 flex items-start gap-2">
             <AlertTriangle className="w-4 h-4 text-secondary shrink-0 mt-0.5" />
-            ⚠️ MART101 is strictly for student-related items within campus. Irrelevant listings may be removed.
+            MART101 is strictly for student-related items within campus. Irrelevant listings may be removed.
           </p>
           <form onSubmit={handleAddProduct} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -348,7 +348,7 @@ const Dashboard = () => {
                 </Select>
                 {newProduct.paymentType === "Pre-order" && (
                   <p className="text-xs text-amber-400 mt-1.5 flex items-start gap-1">
-                    <span>⚠️</span> Only use pre-order if you are trustworthy. Failure to deliver after payment may lead to account suspension.
+                    <span>🕳</span> Only use pre-order if you are trustworthy. Failure to deliver after payment may lead to account suspension.
                   </p>
                 )}
               </div>
