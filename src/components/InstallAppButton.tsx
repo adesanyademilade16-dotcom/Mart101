@@ -10,7 +10,8 @@ const isInStandaloneMode = () =>
 
 const InstallAppButton = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [showInstructions, setShowInstructions] = useState(false);
+  const [showIosInstructions, setShowIosInstructions] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -22,17 +23,20 @@ const InstallAppButton = () => {
   }, []);
 
   // Already installed? Don't show anything.
-  if (isInStandaloneMode()) return null;
+  if (isInStandaloneMode() || dismissed) return null;
+
+  // No native prompt available and not iOS = nothing we can do (unsupported browser)
+  if (!deferredPrompt && !isIos()) return null;
 
   const handleInstall = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      await deferredPrompt.userChoice;
-      setDeferredPrompt(null);
+    if (isIos()) {
+      setShowIosInstructions(true);
       return;
     }
-    // No native prompt available yet (iOS, or Chrome hasn't offered it) — show manual steps
-    setShowInstructions(true);
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    setDeferredPrompt(null);
   };
 
   return (
@@ -45,26 +49,18 @@ const InstallAppButton = () => {
         Download App
       </Button>
 
-      {showInstructions && (
-        <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center px-4" onClick={() => setShowInstructions(false)}>
+      {showIosInstructions && (
+        <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center px-4" onClick={() => setShowIosInstructions(false)}>
           <div className="bg-card rounded-2xl p-6 max-w-sm w-full relative" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => setShowInstructions(false)} className="absolute top-3 right-3 text-muted-foreground">
+            <button onClick={() => setShowIosInstructions(false)} className="absolute top-3 right-3 text-muted-foreground">
               <X className="h-5 w-5" />
             </button>
             <h3 className="font-bold text-lg text-foreground mb-3">Install MART101</h3>
-            {isIos() ? (
-              <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
-                <li>Tap the <strong>Share</strong> icon in Safari's toolbar</li>
-                <li>Scroll down and tap <strong>"Add to Home Screen"</strong></li>
-                <li>Tap <strong>"Add"</strong> in the top right corner</li>
-              </ol>
-            ) : (
-              <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
-                <li>Tap the <strong>⋮ menu</strong> (three dots) in the top right of Chrome</li>
-                <li>Tap <strong>"Add to Home screen"</strong> or <strong>"Install app"</strong></li>
-                <li>Tap <strong>"Install"</strong> or <strong>"Add"</strong> to confirm</li>
-              </ol>
-            )}
+            <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
+              <li>Tap the <strong>Share</strong> icon in Safari's toolbar</li>
+              <li>Scroll down and tap <strong>"Add to Home Screen"</strong></li>
+              <li>Tap <strong>"Add"</strong> in the top right corner</li>
+            </ol>
           </div>
         </div>
       )}
