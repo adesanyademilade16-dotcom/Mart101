@@ -295,32 +295,117 @@ const AdminDashboard = () => {
     console.error("dismiss error:", error);
   }
   break;
-}
-      case "action_report": {
-        // Delete the product and mark report as actioned
-        await supabase.from("products").delete().eq("id", confirm.productId);
-        await supabase.from("product_reports").update({ status: "actioned" }).eq("id", confirm.reportId);
-        setProducts((prev) => prev.filter((p) => p.id !== confirm.productId));
-        setReports((prev) => prev.map((r) => r.id === confirm.reportId ? { ...r, status: "actioned" } : r));
-        await logAction("action_report", `Deleted "${confirm.productName}" from report, seller: "${confirm.sellerName}"`, confirm.sellerId, confirm.productId);
-        toast({ title: "Listing deleted & report actioned" });
-        break;
-      }
-      case "suspend_from_report": {
-        const { error } = await supabase.from("profiles").update({ suspended: true }).eq("user_id", confirm.sellerId);
-        if (!error) {
-          setSellers((prev) => prev.map((s) => s.user_id === confirm.sellerId ? { ...s, suspended: true } : s));
-          setProducts((prev) => prev.map((p) => p.seller_id === confirm.sellerId ? { ...p, seller_suspended: true } : p));
-          await supabase.from("product_reports").update({ status: "actioned" }).eq("id", confirm.reportId);
-          setReports((prev) => prev.map((r) => r.id === confirm.reportId ? { ...r, status: "actioned" } : r));
-          await logAction("suspend", `Suspended "${confirm.sellerName}" from seller report`, confirm.sellerId);
-          toast({ title: "Seller suspended & report actioned" });
-        } else toast({ title: "Error", description: sanitizeError(error), variant: "destructive" });
-        break;
-      }
+switch (confirm.type) {
+  case "delete": {
+    const { error } = await supabase.from("products").delete().eq("id", confirm.productId);
+    if (!error) {
+      setProducts((prev) => prev.filter((p) => p.id !== confirm.productId));
+      await logAction("delete_product", `Deleted "${confirm.productName}"`, undefined, confirm.productId);
+      toast({ title: "Product deleted" });
+    } else {
+      toast({ title: "Delete failed", description: sanitizeError(error), variant: "destructive" });
+      console.error("delete error:", error);
     }
-    setConfirm(null);
-  };
+    break;
+  }
+  case "suspend": {
+    const { error } = await supabase.from("profiles").update({ suspended: true }).eq("user_id", confirm.sellerId);
+    if (!error) {
+      setSellers((prev) => prev.map((s) => s.user_id === confirm.sellerId ? { ...s, suspended: true } : s));
+      setProducts((prev) => prev.map((p) => p.seller_id === confirm.sellerId ? { ...p, seller_suspended: true } : p));
+      await logAction("suspend", `Suspended "${confirm.sellerName}"`, confirm.sellerId);
+      toast({ title: "Seller suspended" });
+    } else {
+      toast({ title: "Error", description: sanitizeError(error), variant: "destructive" });
+      console.error("suspend error:", error);
+    }
+    break;
+  }
+  case "unsuspend": {
+    const { error } = await supabase.from("profiles").update({ suspended: false }).eq("user_id", confirm.sellerId);
+    if (!error) {
+      setSellers((prev) => prev.map((s) => s.user_id === confirm.sellerId ? { ...s, suspended: false } : s));
+      setProducts((prev) => prev.map((p) => p.seller_id === confirm.sellerId ? { ...p, seller_suspended: false } : p));
+      await logAction("unsuspend", `Unsuspended "${confirm.sellerName}"`, confirm.sellerId);
+      toast({ title: "Seller unsuspended" });
+    } else {
+      toast({ title: "Error", description: sanitizeError(error), variant: "destructive" });
+      console.error("unsuspend error:", error);
+    }
+    break;
+  }
+  case "verify": {
+    const newVal = !confirm.currently;
+    const { error } = await supabase.from("profiles").update({ verified: newVal }).eq("user_id", confirm.sellerId);
+    if (!error) {
+      setSellers((prev) => prev.map((s) => s.user_id === confirm.sellerId ? { ...s, verified: newVal } : s));
+      setProducts((prev) => prev.map((p) => p.seller_id === confirm.sellerId ? { ...p, seller_verified: newVal } : p));
+      await logAction(newVal ? "verify" : "unverify", `${newVal ? "Verified" : "Unverified"} "${confirm.sellerName}"`, confirm.sellerId);
+      toast({ title: newVal ? "Seller verified ✓" : "Verification removed" });
+    } else {
+      toast({ title: "Error", description: sanitizeError(error), variant: "destructive" });
+      console.error("verify error:", error);
+    }
+    break;
+  }
+  case "unflag": {
+    const { error } = await supabase.from("products").update({ flagged: false }).eq("id", confirm.productId);
+    if (!error) {
+      setProducts((prev) => prev.map((p) => p.id === confirm.productId ? { ...p, flagged: false } : p));
+      await logAction("unflag", `Unflagged "${confirm.productName}"`, undefined, confirm.productId);
+      toast({ title: "Product unflagged" });
+    } else {
+      toast({ title: "Unflag failed", description: sanitizeError(error), variant: "destructive" });
+      console.error("unflag error:", error);
+    }
+    break;
+  }
+  case "dismiss_report": {
+    const { error } = await supabase.from("product_reports").update({ status: "dismissed" }).eq("id", confirm.reportId);
+    if (!error) {
+      setReports((prev) => prev.map((r) => r.id === confirm.reportId ? { ...r, status: "dismissed" } : r));
+      await logAction("dismiss_report", `Dismissed report ${confirm.reportId}`);
+      toast({ title: "Report dismissed" });
+    } else {
+      toast({ title: "Dismiss failed", description: sanitizeError(error), variant: "destructive" });
+      console.error("dismiss error:", error);
+    }
+    break;
+  }
+  case "action_report": {
+    const { error: reportError } = await supabase.from("product_reports").update({ status: "actioned" }).eq("id", confirm.reportId);
+    const { error: productError } = await supabase.from("products").delete().eq("id", confirm.productId);
+    if (!reportError && !productError) {
+      setProducts((prev) => prev.filter((p) => p.id !== confirm.productId));
+      setReports((prev) => prev.map((r) => r.id === confirm.reportId ? { ...r, status: "actioned" } : r));
+      await logAction("action_report", `Deleted "${confirm.productName}" from report, seller: "${confirm.sellerName}"`, confirm.sellerId, confirm.productId);
+      toast({ title: "Listing deleted & report actioned" });
+    } else {
+      toast({ title: "Action failed", description: sanitizeError(reportError || productError), variant: "destructive" });
+      console.error("action_report error:", reportError, productError);
+    }
+    break;
+  }
+  case "suspend_from_report": {
+    const { error } = await supabase.from("profiles").update({ suspended: true }).eq("user_id", confirm.sellerId);
+    if (!error) {
+      setSellers((prev) => prev.map((s) => s.user_id === confirm.sellerId ? { ...s, suspended: true } : s));
+      setProducts((prev) => prev.map((p) => p.seller_id === confirm.sellerId ? { ...p, seller_suspended: true } : p));
+      const { error: reportErr } = await supabase.from("product_reports").update({ status: "actioned" }).eq("id", confirm.reportId);
+      if (!reportErr) {
+        setReports((prev) => prev.map((r) => r.id === confirm.reportId ? { ...r, status: "actioned" } : r));
+      } else {
+        console.error("suspend_from_report report update error:", reportErr);
+      }
+      await logAction("suspend", `Suspended "${confirm.sellerName}" from seller report`, confirm.sellerId);
+      toast({ title: "Seller suspended & report actioned" });
+    } else {
+      toast({ title: "Error", description: sanitizeError(error), variant: "destructive" });
+      console.error("suspend_from_report error:", error);
+    }
+    break;
+  }
+}
 
   const getModalProps = () => {
     if (!confirm) return { title: "", description: "", confirmLabel: "", variant: "default" as const };
