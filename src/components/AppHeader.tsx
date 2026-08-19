@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAdmin } from "@/hooks/useAdmin";
 import BrandLogo from "@/components/BrandLogo";
 import { Button } from "@/components/ui/button";
+import ConfirmModal from "@/components/ConfirmModal";
 
 const NAV_LINKS = [
   { to: "/", label: "Home", icon: Home },
@@ -31,6 +32,7 @@ const AppHeader = () => {
   const [mounted, setMounted] = useState(false); // in the DOM
   const [visible, setVisible] = useState(false); // slid into view
   const [loggedIn, setLoggedIn] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const { isAdmin } = useAdmin();
   const navigate = useNavigate();
 
@@ -54,8 +56,13 @@ const AppHeader = () => {
     setTimeout(() => setMounted(false), 300); // matches duration-300
   };
 
-  const handleLogout = async () => {
+  const requestLogout = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = async () => {
     await supabase.auth.signOut();
+    setShowLogoutConfirm(false);
     closeMenu();
     navigate("/login");
   };
@@ -134,7 +141,7 @@ const AppHeader = () => {
               ))}
               {loggedIn && (
                 <button
-                  onClick={handleLogout}
+                  onClick={requestLogout}
                   className="flex items-center gap-3 px-4 py-3 mt-2 text-red-300 hover:bg-white/10 text-left border-t border-white/10"
                 >
                   <LogOut className="h-5 w-5" />
@@ -151,6 +158,16 @@ const AppHeader = () => {
           />
         </div>
       )}
+
+      <ConfirmModal
+        open={showLogoutConfirm}
+        onOpenChange={(open) => setShowLogoutConfirm(open)}
+        title="Log out"
+        description="Are you sure you want to log out?"
+        confirmLabel="Log out"
+        variant="destructive"
+        onConfirm={confirmLogout}
+      />
     </header>
   );
 };
