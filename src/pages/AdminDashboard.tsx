@@ -285,14 +285,17 @@ const AdminDashboard = () => {
         break;
       }
       case "dismiss_report": {
-        const { error } = await supabase.from("product_reports").update({ status: "dismissed" }).eq("id", confirm.reportId);
-        if (!error) {
-          setReports((prev) => prev.map((r) => r.id === confirm.reportId ? { ...r, status: "dismissed" } : r));
-          await logAction("dismiss_report", `Dismissed report ${confirm.reportId}`);
-          toast({ title: "Report dismissed" });
-        }
-        break;
-      }
+  const { error } = await supabase.from("product_reports").update({ status: "dismissed" }).eq("id", confirm.reportId);
+  if (!error) {
+    setReports((prev) => prev.map((r) => r.id === confirm.reportId ? { ...r, status: "dismissed" } : r));
+    await logAction("dismiss_report", `Dismissed report ${confirm.reportId}`);
+    toast({ title: "Report dismissed" });
+  } else {
+    toast({ title: "Dismiss failed", description: sanitizeError(error), variant: "destructive" });
+    console.error("dismiss error:", error);
+  }
+  break;
+}
       case "action_report": {
         // Delete the product and mark report as actioned
         await supabase.from("products").delete().eq("id", confirm.productId);
