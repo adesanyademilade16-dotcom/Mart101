@@ -19,20 +19,11 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFieldError(null);
 
-    // Read live DOM values via FormData so autofilled fields (which some
-    // mobile browsers fill without firing React's onChange) are never
-    // validated against stale empty state.
-    const formData = new FormData(e.currentTarget);
-    const domEmail = (formData.get("email") as string) ?? email;
-    const domPassword = (formData.get("password") as string) ?? password;
-    setEmail(domEmail);
-    setPassword(domPassword);
-
-    const parsed = loginSchema.safeParse({ email: domEmail, password: domPassword });
+    const parsed = loginSchema.safeParse({ email, password });
     if (!parsed.success) {
       setFieldError(parsed.error.issues[0]?.message ?? "Invalid input");
       return;
@@ -92,12 +83,12 @@ const Login = () => {
         <form onSubmit={handleSubmit} className="glass-card p-6 space-y-4">
           <div>
             <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} onInput={(e) => setEmail(e.currentTarget.value)} placeholder="adesewa@gmail.com" />
+            <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="adesewa@gmail.com" />
           </div>
           <div>
             <Label htmlFor="password">Password</Label>
             <div className="relative">
-              <Input id="password" name="password" type={showPassword ? "text" : "password"} required value={password} onChange={(e) => setPassword(e.target.value)} onInput={(e) => setPassword(e.currentTarget.value)} placeholder="••••••••" className="pr-10" />
+              <Input id="password" type={showPassword ? "text" : "password"} required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="pr-10" />
               <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -118,7 +109,7 @@ const Login = () => {
 
           <p className="text-center text-sm text-muted-foreground">
             Don't have an account?{" "}
-            <Link to="/login" className="text-secondary font-semibold hover:underline">Sign Up</Link>
+            <Link to="/signup" className="text-secondary font-semibold hover:underline">Sign Up</Link>
           </p>
         </form>
       </div>
