@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { formatNigerianWhatsapp } from "@/lib/formatWhatsapp";
 import { mapSignupError } from "@/lib/errors";
+import { normalizeEmail } from "@/lib/validation";
 
 type FieldErrors = {
   email?: string;
@@ -52,7 +53,7 @@ const Signup = () => {
 
   const validate = (): boolean => {
     const next: FieldErrors = {};
-    if (!EMAIL_REGEX.test(form.email.trim())) {
+    if (!EMAIL_REGEX.test(normalizeEmail(form.email))) {
       next.email = "Please enter a valid email address.";
     }
     if (!isStrongPassword(form.password)) {
@@ -68,13 +69,19 @@ const Signup = () => {
 
     setLoading(true);
 
+    // Normalize the email the same way loginSchema does (lib/validation.ts) —
+    // strips all whitespace and lowercases, so the value submitted here
+    // always matches what gets sent at login regardless of mobile
+    // autocapitalize/autocorrect quirks.
+    const normalizedEmail = normalizeEmail(form.email);
+
     // Preserve ?next= (e.g. an OAuth consent URL) after email confirmation.
     const params = new URLSearchParams(window.location.search);
     const rawNext = params.get("next");
     const safeNext = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : null;
 
     const { error } = await supabase.auth.signUp({
-      email: form.email,
+      email: normalizedEmail,
       password: form.password,
       options: {
         emailRedirectTo: window.location.origin + (safeNext ?? ""),
