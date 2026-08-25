@@ -10,7 +10,6 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { formatNigerianWhatsapp } from "@/lib/formatWhatsapp";
 import { mapSignupError } from "@/lib/errors";
-import { normalizeEmail } from "@/lib/validation";
 
 type FieldErrors = {
   email?: string;
@@ -53,7 +52,7 @@ const Signup = () => {
 
   const validate = (): boolean => {
     const next: FieldErrors = {};
-    if (!EMAIL_REGEX.test(normalizeEmail(form.email))) {
+    if (!EMAIL_REGEX.test(form.email.trim())) {
       next.email = "Please enter a valid email address.";
     }
     if (!isStrongPassword(form.password)) {
@@ -69,19 +68,13 @@ const Signup = () => {
 
     setLoading(true);
 
-    // Normalize the email the same way loginSchema does (lib/validation.ts) —
-    // strips all whitespace and lowercases, so the value submitted here
-    // always matches what gets sent at login regardless of mobile
-    // autocapitalize/autocorrect quirks.
-    const normalizedEmail = normalizeEmail(form.email);
-
     // Preserve ?next= (e.g. an OAuth consent URL) after email confirmation.
     const params = new URLSearchParams(window.location.search);
     const rawNext = params.get("next");
     const safeNext = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : null;
 
     const { error } = await supabase.auth.signUp({
-      email: normalizedEmail,
+      email: form.email,
       password: form.password,
       options: {
         emailRedirectTo: window.location.origin + (safeNext ?? ""),
@@ -122,7 +115,7 @@ const Signup = () => {
         <form onSubmit={handleSubmit} noValidate className="glass-card p-6 space-y-4">
           <div>
             <Label htmlFor="fullName">Full Name</Label>
-            <Input id="fullName" name="fullName" required value={form.fullName} onChange={handleChange} placeholder="adesewa omotola" />
+            <Input id="fullName" name="fullName" required value={form.fullName} onChange={handleChange} placeholder="John Doe" />
           </div>
           <div>
             <Label htmlFor="email">Email</Label>
@@ -133,7 +126,7 @@ const Signup = () => {
               required
               value={form.email}
               onChange={handleChange}
-              placeholder="adesewa@gmail.com"
+              placeholder="john@university.edu"
               aria-invalid={!!errors.email}
               aria-describedby={errors.email ? "email-error" : undefined}
             />
@@ -150,11 +143,11 @@ const Signup = () => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="department">Department</Label>
-              <Input id="department" name="department" required value={form.department} onChange={handleChange} placeholder="Microbiology" />
+              <Input id="department" name="department" required value={form.department} onChange={handleChange} placeholder="Computer Science" />
             </div>
             <div>
               <Label htmlFor="level">Level</Label>
-              <Input id="level" name="level" required value={form.level} onChange={handleChange} placeholder="200" />
+              <Input id="level" name="level" required value={form.level} onChange={handleChange} placeholder="300" />
             </div>
           </div>
           <div>
