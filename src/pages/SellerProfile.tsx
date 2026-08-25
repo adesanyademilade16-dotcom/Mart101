@@ -36,10 +36,18 @@ const SellerProfile = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [showReportConfirm, setShowReportConfirm] = useState(false);
+  const [needsAuth, setNeedsAuth] = useState(false);
 
   useEffect(() => {
     const fetchSeller = async () => {
       if (!sellerId) return;
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setNeedsAuth(true);
+        setLoading(false);
+        return;
+      }
 
       const { data: profileArr } = await supabase
         .rpc("get_seller_public_info", { seller_ids: [sellerId] });
@@ -96,6 +104,21 @@ const SellerProfile = () => {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="w-10 h-10 border-4 border-secondary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (needsAuth) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4 px-6 text-center">
+        <p className="text-xl text-foreground font-semibold">Sign in to view this seller</p>
+        <p className="text-muted-foreground text-sm max-w-sm">
+          Create an account or sign in to view seller info and contact them.
+        </p>
+        <div className="flex gap-3">
+          <Link to="/login"><Button variant="secondary">Sign In</Button></Link>
+          <Link to="/marketplace"><Button variant="outline">Back to Marketplace</Button></Link>
+        </div>
       </div>
     );
   }
