@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, MessageCircle, ShoppingBag, Flag, AlertTriangle } from "lucide-react";
 import LazyImage from "@/components/LazyImage";
 import VerifiedBadge from "@/components/VerifiedBadge";
@@ -44,9 +44,11 @@ interface Product {
 
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [showReport, setShowReport] = useState(false);
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
   const { toast } = useToast();
 
@@ -82,8 +84,16 @@ const ProductDetail = () => {
     fetch();
   }, [id]);
 
-  const handleBuy = () => {
-    if (!product?.profiles?.whatsapp_number) return;
+  const handleBuy = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      setShowAuthPrompt(true);
+      return;
+    }
+    if (!product?.profiles?.whatsapp_number) {
+      toast({ title: "Seller contact unavailable", variant: "destructive" });
+      return;
+    }
     const phone = formatNigerianWhatsapp(product.profiles.whatsapp_number);
     const message = encodeURIComponent(
       `Hello, I am interested in buying your ${product.name} listed on MART101.`
@@ -288,6 +298,16 @@ const ProductDetail = () => {
             toast({ title: "Product reported", description: "An admin will review this listing." });
           }
         }}
+      />
+
+      <ConfirmModal
+        open={showAuthPrompt}
+        onOpenChange={setShowAuthPrompt}
+        title="Sign in to continue"
+        description="Create an account or sign in to view seller contact info and buy this item."
+        confirmLabel="Sign In"
+        cancelLabel="Cancel"
+        onConfirm={() => navigate("/login")}
       />
     </div>
   );
