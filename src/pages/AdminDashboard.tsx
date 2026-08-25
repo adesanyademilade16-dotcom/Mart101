@@ -401,7 +401,7 @@ const AdminDashboard = () => {
     <div className="min-h-screen bg-background">
       <AppHeader />
       <main className="container mx-auto px-4 py-8 max-w-6xl">
-        <h1 className="text-3xl font-bold text-foreground mb-1">Welcome {adminName} 👋</h1>
+        <h1 className="text-3xl font-bold text-foreground mb-1">Welcome {adminName} 💣</h1>
         <p className="text-muted-foreground mb-6">Admin Control Panel</p>
 
         <Tabs defaultValue="overview" className="space-y-6">
