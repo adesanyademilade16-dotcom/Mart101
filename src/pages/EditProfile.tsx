@@ -15,8 +15,11 @@ const EditProfile = () => {
   const { toast } = useToast();
   const [bootstrapping, setBootstrapping] = useState(true);
   const [email, setEmail] = useState("");
+  const [isPasswordAccount, setIsPasswordAccount] = useState(true);
 
   // Gate: user must confirm their current password before the form unlocks.
+  // OAuth accounts (e.g. Google) have no password on file, so they skip
+  // this step — their live session already proves a fresh sign-in.
   const [unlocked, setUnlocked] = useState(false);
   const [password, setPassword] = useState("");
   const [verifying, setVerifying] = useState(false);
@@ -37,6 +40,14 @@ const EditProfile = () => {
         return;
       }
       setEmail(session.user.email || "");
+
+      // Determine whether this account has a password at all.
+      // app_metadata.provider is "email" for password-based signups;
+      // OAuth providers (e.g. "google") never had a password set.
+      const provider = session.user.app_metadata?.provider;
+      const hasPassword = provider === "email";
+      setIsPasswordAccount(hasPassword);
+      if (!hasPassword) setUnlocked(true);
 
       const { data: profile } = await supabase
         .from("profiles")
@@ -164,6 +175,11 @@ const EditProfile = () => {
         ) : (
           <form onSubmit={handleSubmit} className="bg-card rounded-2xl border border-border/50 shadow-sm p-6 space-y-4">
             <h1 className="text-lg font-semibold text-foreground mb-1">Edit Profile</h1>
+            {!isPasswordAccount && (
+              <p className="text-xs text-muted-foreground -mt-2">
+                Signed in with Google — no password confirmation needed.
+              </p>
+            )}
             <div>
               <Label htmlFor="fullName">Full Name</Label>
               <Input id="fullName" name="fullName" required value={form.fullName} onChange={handleChange} />
