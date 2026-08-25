@@ -52,7 +52,8 @@ const Signup = () => {
 
   const validate = (): boolean => {
     const next: FieldErrors = {};
-    if (!EMAIL_REGEX.test(form.email.trim())) {
+    console.log("EMAIL VALUE:", JSON.stringify(form.email));
+if (!EMAIL_REGEX.test(form.email.trim())) {
       next.email = "Please enter a valid email address.";
     }
     if (!isStrongPassword(form.password)) {
