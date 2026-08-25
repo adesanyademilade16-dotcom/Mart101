@@ -24,6 +24,9 @@ export function mapSignupError(error: unknown): SignupFieldError {
 
   const lower = msg.toLowerCase();
 
+  if (lower.includes("rate limit") || lower.includes("too many requests") || lower.includes("only request this after")) {
+    return { field: "form", message: "Too many attempts. Please wait a few minutes and try again." };
+  }
   if (lower.includes("already registered") || lower.includes("already exists")) {
     return { field: "email", message: "An account with this email already exists." };
   }
