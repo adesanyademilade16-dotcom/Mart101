@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { ShoppingBag, Plus, Trash2, Upload, AlertTriangle } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import ConfirmModal from "@/components/ConfirmModal";
@@ -280,7 +280,12 @@ const Dashboard = () => {
     <div className="min-h-screen bg-background">
       <AppHeader />
       <main className="container mx-auto px-4 py-8 max-w-4xl">
-        <h1 className="text-3xl font-bold text-foreground mb-8">Seller Dashboard</h1>
+        <div className="flex items-center justify-between mb-8 gap-3 flex-wrap">
+          <h1 className="text-3xl font-bold text-foreground">Seller Dashboard</h1>
+          <Link to="/edit-profile" className="text-sm font-medium text-secondary hover:underline">
+            Edit Profile
+          </Link>
+        </div>
 
         {profile?.suspended && (
           <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-4 mb-6 flex items-center gap-3">
