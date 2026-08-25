@@ -1,9 +1,10 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { ShoppingBag, Plus, Trash2, Upload, AlertTriangle } from "lucide-react";
+import { ShoppingBag, Plus, Trash2, Upload, AlertTriangle, CalendarDays, Package } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import ConfirmModal from "@/components/ConfirmModal";
 import ConditionBadge from "@/components/ConditionBadge";
+import VerifiedBadge from "@/components/VerifiedBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -276,15 +277,47 @@ const Dashboard = () => {
     );
   }
 
+  const joinDate = profile?.created_at
+    ? new Date(profile.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long" })
+    : null;
+
   return (
     <div className="min-h-screen bg-background">
       <AppHeader />
       <main className="container mx-auto px-4 py-8 max-w-4xl">
-        <div className="flex items-center justify-between mb-8 gap-3 flex-wrap">
+        <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
           <h1 className="text-3xl font-bold text-foreground">Seller Dashboard</h1>
           <Link to="/edit-profile" className="text-sm font-medium text-secondary hover:underline">
             Edit Profile
           </Link>
+        </div>
+
+        {/* Profile Card */}
+        <div className="glass-card p-6 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="w-16 h-16 rounded-full bg-secondary/20 flex items-center justify-center text-secondary text-2xl font-bold shrink-0">
+              {profile?.full_name?.charAt(0).toUpperCase() || "?"}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h2 className="text-xl font-bold text-foreground">{profile?.full_name || "Seller"}</h2>
+                {profile?.verified && <VerifiedBadge />}
+              </div>
+              <p className="text-muted-foreground text-sm">
+                {profile?.department}{profile?.level ? ` · Level ${profile.level}` : ""}
+              </p>
+              <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground flex-wrap">
+                {joinDate && (
+                  <span className="flex items-center gap-1">
+                    <CalendarDays className="w-3.5 h-3.5" /> Joined {joinDate}
+                  </span>
+                )}
+                <span className="flex items-center gap-1">
+                  <Package className="w-3.5 h-3.5" /> {products.length} listing{products.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
 
         {profile?.suspended && (
