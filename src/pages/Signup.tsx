@@ -62,32 +62,9 @@ const Signup = () => {
     return Object.keys(next).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Belt-and-suspenders against autofill not syncing React state on some
-    // mobile browsers: read the live DOM values via FormData and merge them
-    // into state before validating, so we never validate stale/empty state.
-    const formData = new FormData(e.currentTarget);
-    const domForm = {
-      fullName: (formData.get("fullName") as string) ?? form.fullName,
-      email: (formData.get("email") as string) ?? form.email,
-      whatsappNumber: (formData.get("whatsappNumber") as string) ?? form.whatsappNumber,
-      department: (formData.get("department") as string) ?? form.department,
-      level: (formData.get("level") as string) ?? form.level,
-      password: (formData.get("password") as string) ?? form.password,
-    };
-    setForm(domForm);
-
-    const nextErrors: FieldErrors = {};
-    if (!EMAIL_REGEX.test(domForm.email.trim())) {
-      nextErrors.email = "Please enter a valid email address.";
-    }
-    if (!isStrongPassword(domForm.password)) {
-      nextErrors.password = PASSWORD_MESSAGE;
-    }
-    setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) return;
+    if (!validate()) return;
 
     setLoading(true);
 
@@ -97,15 +74,15 @@ const Signup = () => {
     const safeNext = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : null;
 
     const { error } = await supabase.auth.signUp({
-      email: domForm.email,
-      password: domForm.password,
+      email: form.email,
+      password: form.password,
       options: {
         emailRedirectTo: window.location.origin + (safeNext ?? ""),
         data: {
-          full_name: domForm.fullName,
-          whatsapp_number: formatNigerianWhatsapp(domForm.whatsappNumber),
-          department: domForm.department,
-          level: domForm.level,
+          full_name: form.fullName,
+          whatsapp_number: formatNigerianWhatsapp(form.whatsappNumber),
+          department: form.department,
+          level: form.level,
         },
       },
     });
@@ -138,7 +115,7 @@ const Signup = () => {
         <form onSubmit={handleSubmit} noValidate className="glass-card p-6 space-y-4">
           <div>
             <Label htmlFor="fullName">Full Name</Label>
-            <Input id="fullName" name="fullName" required value={form.fullName} onChange={handleChange} onInput={handleChange} placeholder="John Doe" />
+            <Input id="fullName" name="fullName" required value={form.fullName} onChange={handleChange} placeholder="John Doe" />
           </div>
           <div>
             <Label htmlFor="email">Email</Label>
@@ -149,7 +126,6 @@ const Signup = () => {
               required
               value={form.email}
               onChange={handleChange}
-              onInput={handleChange}
               placeholder="john@university.edu"
               aria-invalid={!!errors.email}
               aria-describedby={errors.email ? "email-error" : undefined}
@@ -162,16 +138,16 @@ const Signup = () => {
           </div>
           <div>
             <Label htmlFor="whatsappNumber">WhatsApp Number</Label>
-            <Input id="whatsappNumber" name="whatsappNumber" required value={form.whatsappNumber} onChange={handleChange} onInput={handleChange} placeholder="09065757430" />
+            <Input id="whatsappNumber" name="whatsappNumber" required value={form.whatsappNumber} onChange={handleChange} placeholder="09065757430" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="department">Department</Label>
-              <Input id="department" name="department" required value={form.department} onChange={handleChange} onInput={handleChange} placeholder="Computer Science" />
+              <Input id="department" name="department" required value={form.department} onChange={handleChange} placeholder="Computer Science" />
             </div>
             <div>
               <Label htmlFor="level">Level</Label>
-              <Input id="level" name="level" required value={form.level} onChange={handleChange} onInput={handleChange} placeholder="300" />
+              <Input id="level" name="level" required value={form.level} onChange={handleChange} placeholder="300" />
             </div>
           </div>
           <div>
@@ -185,7 +161,6 @@ const Signup = () => {
                 minLength={8}
                 value={form.password}
                 onChange={handleChange}
-                onInput={handleChange}
                 placeholder="••••••••"
                 className="pr-10"
                 aria-invalid={!!errors.password}
