@@ -1,12 +1,32 @@
-import { useLocation } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import { useEffect } from "react";
 
 const NotFound = () => {
   const location = useLocation();
+  const isConnectAi = location.pathname === "/connect-ai";
 
   useEffect(() => {
-    console.error("404 Error: User attempted to access non-existent route:", location.pathname);
-  }, [location.pathname]);
+    if (!isConnectAi) {
+      console.error("404 Error: User attempted to access non-existent route:", location.pathname);
+    }
+  }, [location.pathname, isConnectAi]);
+
+  if (isConnectAi) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted">
+        <div className="text-center px-4">
+          <h1 className="mb-2 text-3xl font-bold">Connect AI</h1>
+          <p className="mb-4 text-xl text-muted-foreground">🚧 Under Development</p>
+          <p className="mb-4 text-sm text-muted-foreground max-w-sm mx-auto">
+            We're working on letting students connect MART101 with their favorite AI tools. Stay tuned!
+          </p>
+          <a href="/" className="text-primary underline hover:text-primary/90">
+            Return to Home
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted">
