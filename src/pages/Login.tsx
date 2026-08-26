@@ -80,10 +80,17 @@ const Login = () => {
           <p className="text-primary-foreground/60">Login to your account</p>
         </div>
 
+        <div className="glass-card px-4 py-3 mb-4 flex items-start gap-2 text-sm">
+          <span className="text-secondary shrink-0 mt-0.5">💡</span>
+          <p className="text-muted-foreground">
+            We recommend signing in with <span className="font-semibold text-foreground">Google</span> for instant access — no email confirmation needed.
+          </p>
+        </div>
+
         <form onSubmit={handleSubmit} className="glass-card p-6 space-y-4">
-          <div>
+           <div>
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="adesewa@gmail.com" />
+            <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="motola@gmail.com" />
           </div>
           <div>
             <Label htmlFor="password">Password</Label>
