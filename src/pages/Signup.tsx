@@ -111,11 +111,16 @@ if (!EMAIL_REGEX.test(form.email.trim())) {
           </div>
           <p className="text-primary-foreground/60">Create your seller account</p>
         </div>
-
+        <div className="glass-card px-4 py-3 mb-4 flex items-start gap-2 text-sm">
+  <span className="text-secondary shrink-0 mt-0.5">💡</span>
+  <p className="text-muted-foreground">
+    We recommend signing up with <span className="font-semibold text-foreground">Google</span> for instant access — no email confirmation needed.
+  </p>
+</div>
         <form onSubmit={handleSubmit} noValidate className="glass-card p-6 space-y-4">
           <div>
             <Label htmlFor="fullName">Full Name</Label>
-            <Input id="fullName" name="fullName" required value={form.fullName} onChange={handleChange} placeholder="John Doe" />
+            <Input id="fullName" name="fullName" required value={form.fullName} onChange={handleChange} placeholder="Omotola ayo" />
           </div>
           <div>
             <Label htmlFor="email">Email</Label>
@@ -126,7 +131,7 @@ if (!EMAIL_REGEX.test(form.email.trim())) {
               required
               value={form.email}
               onChange={handleChange}
-              placeholder="john@university.edu"
+              placeholder="omotola@gmail.com"
               aria-invalid={!!errors.email}
               aria-describedby={errors.email ? "email-error" : undefined}
             />
@@ -143,7 +148,7 @@ if (!EMAIL_REGEX.test(form.email.trim())) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="department">Department</Label>
-              <Input id="department" name="department" required value={form.department} onChange={handleChange} placeholder="Computer Science" />
+              <Input id="department" name="department" required value={form.department} onChange={handleChange} placeholder="Biochemistry" />
             </div>
             <div>
               <Label htmlFor="level">Level</Label>
