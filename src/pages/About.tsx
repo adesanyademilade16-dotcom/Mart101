@@ -66,18 +66,18 @@ const About = () => {
 
         {/* Team */}
         <section className="container mx-auto px-4 py-14 max-w-3xl text-center">
-          <h2 className="text-2xl font-bold text-foreground mb-3">Built by NexByte</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-3">Built by TRIFORGE</h2>
           <p className="text-muted-foreground text-sm leading-relaxed max-w-xl mx-auto mb-14">
-            MART101 is proudly developed and maintained by NexByte, a team passionate about building practical technology solutions for students.
+            MART101 is proudly developed and maintained by TRIFORGE a team passionate about building practical technology solutions for students.
           </p>
 
           <div className="flex flex-col items-center">
             {/* Root node */}
             <div className="glass-card px-8 py-5 rounded-2xl shadow-lg flex flex-col items-center">
               <div className="w-14 h-14 rounded-full bg-secondary/15 flex items-center justify-center mb-2">
-                <span className="text-secondary font-bold text-lg">NB</span>
+                <span className="text-secondary font-bold text-lg">🕸</span>
               </div>
-              <span className="font-bold text-foreground text-lg tracking-wide">NexByte</span>
+              <span className="font-bold text-foreground text-lg tracking-wide">TRIFORGE</span>
             </div>
 
             {/* Trunk line down from root */}
