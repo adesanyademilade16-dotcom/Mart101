@@ -9,7 +9,11 @@ const whyBlocks = [
   { icon: ShieldCheck, title: "Secure", desc: "Admin monitoring and community reporting system." },
 ];
 
-const team = ["GREMLIN", "CODEX", "MOTBUG"];
+const team = [
+  { name: "GREMLIN", emoji: "🕷" },
+  { name: "CODEX", emoji: "📜" },
+  { name: "MOTBUG", emoji: "🐛" },
+];
 
 const About = () => {
   return (
@@ -90,15 +94,15 @@ const About = () => {
 
             {/* Branches */}
             <div className="flex justify-center gap-12 sm:gap-16 w-full max-w-md">
-              {team.map((name) => (
-                <div key={name} className="flex flex-col items-center">
+              {team.map((member) => (
+                <div key={member.name} className="flex flex-col items-center">
                   <div className="w-px h-8 bg-border" />
                   <div className="glass-card px-5 py-4 rounded-xl shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
                     <div className="w-10 h-10 rounded-full bg-secondary/15 flex items-center justify-center mx-auto mb-2">
-                      <span className="text-secondary font-bold text-sm">{name[0]}</span>
+                      <span className="text-lg">{member.emoji}</span>
                     </div>
                     <span className="font-semibold text-foreground text-sm tracking-wide whitespace-nowrap">
-                      {name}
+                      {member.name}
                     </span>
                   </div>
                 </div>
