@@ -11,7 +11,7 @@ const whyBlocks = [
 
 const team = [
   { name: "GREMLIN", emoji: "🕷" },
-  { name: "CODEX", emoji: "📜" },
+  { name: "CODEX", emoji: "🪦" },
   { name: "MOTBUG", emoji: "🥷" },
 ];
 
