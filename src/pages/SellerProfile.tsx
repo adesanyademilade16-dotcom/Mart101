@@ -18,6 +18,7 @@ interface SellerData {
   level: string;
   verified: boolean;
   created_at: string;
+  avatar_url?: string | null;
 }
 
 interface Product {
@@ -145,9 +146,13 @@ const SellerProfile = () => {
         {/* Seller Card */}
         <div className="bg-card rounded-2xl border border-border/50 shadow-sm p-6 mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-secondary/20 flex items-center justify-center text-secondary text-2xl font-bold shrink-0">
-              {seller.full_name.charAt(0).toUpperCase()}
-            </div>
+            {seller.avatar_url ? (
+  <img src={seller.avatar_url} alt={seller.full_name} className="w-16 h-16 rounded-full object-cover shrink-0 border border-border" />
+) : (
+  <div className="w-16 h-16 rounded-full bg-secondary/20 flex items-center justify-center text-secondary text-2xl font-bold shrink-0">
+    {seller.full_name.charAt(0).toUpperCase()}
+  </div>
+)}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <h1 className="text-2xl font-bold text-foreground">{seller.full_name}</h1>
