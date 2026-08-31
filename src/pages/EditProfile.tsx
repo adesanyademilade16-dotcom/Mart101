@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { ArrowLeft, Lock } from "lucide-react";
+import { ArrowLeft, Lock, Camera } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -10,9 +10,18 @@ import { useToast } from "@/hooks/use-toast";
 import { formatNigerianWhatsapp } from "@/lib/formatWhatsapp";
 import { sanitizeError } from "@/lib/errors";
 
+const CLOUDINARY_CLOUD_NAME = "oxt5nzu7";
+const CLOUDINARY_UPLOAD_PRESET = "mart101_avatars";
+const CLOUDINARY_UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
+
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_FILE_SIZE_MB = 5;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+
 const EditProfile = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [bootstrapping, setBootstrapping] = useState(true);
   const [email, setEmail] = useState("");
   const [isPasswordAccount, setIsPasswordAccount] = useState(true);
@@ -31,6 +40,11 @@ const EditProfile = () => {
     department: "",
     level: "",
   });
+
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -51,7 +65,7 @@ const EditProfile = () => {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("full_name, whatsapp_number, department, level")
+        .select("full_name, whatsapp_number, department, level, avatar_url")
         .eq("user_id", session.user.id)
         .single();
 
@@ -61,6 +75,7 @@ const EditProfile = () => {
         department: profile?.department || "",
         level: profile?.level || "",
       });
+      setAvatarUrl(profile?.avatar_url || null);
       setBootstrapping(false);
     })();
   }, [navigate]);
@@ -98,6 +113,49 @@ const EditProfile = () => {
     setUnlocked(true);
   };
 
+  const handleAvatarSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setAvatarError("Only JPEG, PNG, and WebP images are allowed.");
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      setAvatarError(`Image must be under ${MAX_FILE_SIZE_MB}MB.`);
+      return;
+    }
+    setAvatarError(null);
+
+    // Show an instant local preview while the upload happens in the background.
+    const localPreview = URL.createObjectURL(file);
+    setAvatarPreview(localPreview);
+    setUploadingAvatar(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+
+      const res = await fetch(CLOUDINARY_UPLOAD_URL, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) throw new Error("Upload failed");
+
+      const data = await res.json();
+      setAvatarUrl(data.secure_url);
+      toast({ title: "Picture uploaded", description: "Don't forget to save changes." });
+    } catch {
+      setAvatarError("Failed to upload image. Please try again.");
+      setAvatarPreview(null);
+    } finally {
+      setUploadingAvatar(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -114,6 +172,7 @@ const EditProfile = () => {
         whatsapp_number: whatsapp,
         department: form.department.trim(),
         level: form.level.trim(),
+        avatar_url: avatarUrl,
       })
       .eq("user_id", session.user.id);
 
@@ -137,6 +196,8 @@ const EditProfile = () => {
       </div>
     );
   }
+
+  const displayAvatar = avatarPreview || avatarUrl;
 
   return (
     <div className="min-h-screen bg-background">
@@ -180,6 +241,47 @@ const EditProfile = () => {
                 Signed in with Google — no password confirmation needed.
               </p>
             )}
+
+            {/* Profile Picture */}
+            <div className="flex flex-col items-center gap-2 py-2">
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="relative w-24 h-24 rounded-full cursor-pointer group"
+              >
+                {displayAvatar ? (
+                  <img src={displayAvatar} alt="Profile" className="w-24 h-24 rounded-full object-cover border-2 border-border" />
+                ) : (
+                  <div className="w-24 h-24 rounded-full bg-secondary/20 flex items-center justify-center text-secondary text-3xl font-bold border-2 border-border">
+                    {form.fullName?.charAt(0).toUpperCase() || "?"}
+                  </div>
+                )}
+                <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Camera className="w-6 h-6 text-white" />
+                </div>
+                {uploadingAvatar && (
+                  <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center">
+                    <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="text-sm font-medium text-secondary hover:underline"
+                disabled={uploadingAvatar}
+              >
+                Change Profile Picture
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={handleAvatarSelect}
+              />
+              {avatarError && <p className="text-sm text-destructive">{avatarError}</p>}
+            </div>
+
             <div>
               <Label htmlFor="fullName">Full Name</Label>
               <Input id="fullName" name="fullName" required value={form.fullName} onChange={handleChange} />
@@ -198,7 +300,7 @@ const EditProfile = () => {
                 <Input id="level" name="level" required value={form.level} onChange={handleChange} />
               </div>
             </div>
-            <Button type="submit" variant="secondary" className="w-full font-semibold" disabled={saving}>
+            <Button type="submit" variant="secondary" className="w-full font-semibold" disabled={saving || uploadingAvatar}>
               {saving ? "Saving…" : "Save Changes"}
             </Button>
           </form>
