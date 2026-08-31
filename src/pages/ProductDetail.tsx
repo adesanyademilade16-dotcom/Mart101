@@ -255,7 +255,7 @@ const ProductDetail = () => {
               onClick={() => setShowReport(true)}
             >
               <Flag className="w-4 h-4 mr-2" />
-              🚩 Report Product
+               Report Product
             </Button>
 
             <p className="text-xs text-muted-foreground mt-4 flex items-start gap-1.5">
