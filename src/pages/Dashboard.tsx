@@ -295,9 +295,13 @@ const Dashboard = () => {
         {/* Profile Card */}
         <div className="glass-card p-6 mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-secondary/20 flex items-center justify-center text-secondary text-2xl font-bold shrink-0">
-              {profile?.full_name?.charAt(0).toUpperCase() || "?"}
-            </div>
+            {profile?.avatar_url ? (
+  <img src={profile.avatar_url} alt={profile.full_name} className="w-16 h-16 rounded-full object-cover shrink-0 border border-border" />
+) : (
+  <div className="w-16 h-16 rounded-full bg-secondary/20 flex items-center justify-center text-secondary text-2xl font-bold shrink-0">
+    {profile?.full_name?.charAt(0).toUpperCase() || "?"}
+  </div>
+)}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <h2 className="text-xl font-bold text-foreground">{profile?.full_name || "Seller"}</h2>
