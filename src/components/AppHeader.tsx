@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Menu, X, Home, Store, PlusCircle, LayoutDashboard, ShieldCheck,
-  Info, HelpCircle, FileText, Lock, ClipboardCheck, Mail, LogOut,
+  Info, HelpCircle, FileText, Lock, ClipboardCheck, Mail, LogOut, MessageCircle,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdmin } from "@/hooks/useAdmin";
@@ -13,6 +13,7 @@ import ConfirmModal from "@/components/ConfirmModal";
 const NAV_LINKS = [
   { to: "/", label: "Home", icon: Home },
   { to: "/marketplace", label: "Browse Marketplace", icon: Store },
+  { to: "/messages", label: "Messages", icon: MessageCircle },
   { to: "/dashboard?tab=sell", label: "Sell a Product", icon: PlusCircle },
   { to: "/dashboard", label: "My Dashboard", icon: LayoutDashboard },
 ];
