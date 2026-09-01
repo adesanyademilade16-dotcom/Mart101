@@ -9,6 +9,7 @@ import { formatNigerianWhatsapp } from "@/lib/formatWhatsapp";
 import AppHeader from "@/components/AppHeader";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import ConfirmModal from "@/components/ConfirmModal";
+import MessageSellerButton from "@/components/MessageSellerButton";
 
 interface SellerData {
   user_id: string;
@@ -165,7 +166,8 @@ const SellerProfile = () => {
               </div>
             </div>
           </div>
-          <div className="flex gap-2 mt-5">
+          <<div className="flex gap-2 mt-5 flex-wrap">
+            <MessageSellerButton sellerId={seller.user_id} className="font-semibold flex-1 sm:flex-none" />
             <Button onClick={handleContact} variant="secondary" className="font-semibold flex-1 sm:flex-none">
               <MessageCircle className="w-4 h-4 mr-1.5" /> WhatsApp
             </Button>
