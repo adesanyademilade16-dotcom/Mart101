@@ -12,6 +12,7 @@ import BrandLogo from "@/components/BrandLogo";
 import { formatNigerianWhatsapp } from "@/lib/formatWhatsapp";
 import { useToast } from "@/hooks/use-toast";
 import ConfirmModal from "@/components/ConfirmModal";
+import MessageSellerButton from "@/components/MessageSellerButton";
 import {
   Carousel,
   CarouselContent,
@@ -239,16 +240,21 @@ const ProductDetail = () => {
               <PaymentTrustMessage paymentType={product.payment_type || "Pay on Delivery"} />
             </div>
 
-            <Button
-              onClick={handleBuy}
-              variant="secondary"
-              size="lg"
-              className="w-full mt-6 font-semibold text-lg h-14"
-            >
-              <MessageCircle className="w-5 h-5 mr-2" />
-              Buy on WhatsApp
-            </Button>
-
+            <div className="grid grid-cols-2 gap-3 mt-6">
+              <MessageSellerButton
+                sellerId={product.seller_id}
+                productId={product.id}
+                className="w-full font-semibold text-base h-14"
+              />
+              <Button
+                onClick={handleBuy}
+                variant="secondary"
+                className="w-full font-semibold text-base h-14"
+              >
+                <MessageCircle className="w-5 h-5 mr-2" />
+                WhatsApp
+              </Button>
+            </div>
             <Button
               variant="outline"
               className="w-full mt-2"
