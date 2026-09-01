@@ -21,6 +21,8 @@ import AdminDashboard from "./pages/AdminDashboard";
 import SellerProfile from "./pages/SellerProfile";
 import SafeCampusTrading from "./pages/SafeCampusTrading";
 import NotFound from "./pages/NotFound";
+import Messages from "./pages/Messages";
+import Conversation from "./pages/Conversation";
 
 const queryClient = new QueryClient();
 
@@ -49,6 +51,8 @@ const App = () => (
           <Route path="/seller/:sellerId" element={<SellerProfile />} />
           <Route path="/blog/safe-campus-trading-oou" element={<SafeCampusTrading />} />
           <Route path="*" element={<NotFound />} />
+          <Route path="/messages" element={<Messages />} />
+          <Route path="/messages/:id" element={<Conversation />} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>
