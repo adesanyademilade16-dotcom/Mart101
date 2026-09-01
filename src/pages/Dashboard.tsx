@@ -481,7 +481,7 @@ const Dashboard = () => {
         {products.length === 0 ? (
           <p className="text-muted-foreground text-center py-10">You haven't listed any products yet.</p>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {products.map((product) => (
               <div key={product.id} className="glass-card overflow-hidden">
                 <div className="aspect-square bg-muted">
