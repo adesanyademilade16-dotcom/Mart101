@@ -9,6 +9,7 @@ import { formatNigerianWhatsapp } from "@/lib/formatWhatsapp";
 import AppHeader from "@/components/AppHeader";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import ConfirmModal from "@/components/ConfirmModal";
+import MessageSellerButton from "@/components/MessageSellerButton";
 
 interface SellerData {
   user_id: string;
