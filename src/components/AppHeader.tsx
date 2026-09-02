@@ -9,6 +9,7 @@ import { useAdmin } from "@/hooks/useAdmin";
 import BrandLogo from "@/components/BrandLogo";
 import { Button } from "@/components/ui/button";
 import ConfirmModal from "@/components/ConfirmModal";
+import { useNotifications } from "@/contexts/NotificationsContext";
 
 const NAV_LINKS = [
   { to: "/", label: "Home", icon: Home },
