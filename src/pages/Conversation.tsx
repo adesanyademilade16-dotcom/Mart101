@@ -1,10 +1,11 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { ArrowLeft, Send, Image as ImageIcon, ShoppingBag, Check, CheckCheck } from "lucide-react";
+import { ArrowLeft, Send, Image as ImageIcon, ShoppingBag, Check, CheckCheck, X, Pencil, Trash2, MoreVertical } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import ConfirmModal from "@/components/ConfirmModal";
 
 const CLOUDINARY_CLOUD_NAME = "oxt5nzu7";
 const CLOUDINARY_UPLOAD_PRESET = "mart101_avatars";
@@ -21,6 +22,7 @@ interface Message {
   image_url: string | null;
   created_at: string;
   read_at: string | null;
+  edited_at: string | null;
 }
 
 const Conversation = () => {
@@ -40,6 +42,17 @@ const Conversation = () => {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+
+  // Image about to be sent — shown as a preview instead of auto-sending
+  const [pendingImage, setPendingImage] = useState<File | null>(null);
+  const [pendingImagePreview, setPendingImagePreview] = useState<string | null>(null);
+
+  // Which message's action menu (edit/delete) is open
+  const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+  const [deleteMessageTarget, setDeleteMessageTarget] = useState<string | null>(null);
+  const [deleteChatConfirm, setDeleteChatConfirm] = useState(false);
 
   const scrollToBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -98,7 +111,7 @@ const Conversation = () => {
     load();
   }, [id, navigate, toast]);
 
-  // Realtime: listen for new messages AND read-status changes in this conversation
+  // Realtime: new messages, read-status updates, edits, and deletions
   useEffect(() => {
     if (!id) return;
     const channel = supabase
@@ -119,7 +132,15 @@ const Conversation = () => {
         { event: "UPDATE", schema: "public", table: "messages", filter: `conversation_id=eq.${id}` },
         (payload) => {
           const updated = payload.new as Message;
-          setMessages((prev) => prev.map((m) => (m.id === updated.id ? { ...m, read_at: updated.read_at } : m)));
+          setMessages((prev) => prev.map((m) => (m.id === updated.id ? { ...m, ...updated } : m)));
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "messages", filter: `conversation_id=eq.${id}` },
+        (payload) => {
+          const deletedId = (payload.old as { id: string }).id;
+          setMessages((prev) => prev.filter((m) => m.id !== deletedId));
         }
       )
       .subscribe();
@@ -153,9 +174,9 @@ const Conversation = () => {
     }
   };
 
-  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !id || !userId) return;
+    if (!file) return;
 
     if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
       toast({ title: "Only JPEG, PNG, and WebP images are allowed.", variant: "destructive" });
@@ -166,10 +187,23 @@ const Conversation = () => {
       return;
     }
 
+    setPendingImage(file);
+    setPendingImagePreview(URL.createObjectURL(file));
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const cancelPendingImage = () => {
+    setPendingImage(null);
+    setPendingImagePreview(null);
+  };
+
+  const confirmSendImage = async () => {
+    if (!pendingImage || !id || !userId) return;
+
     setUploadingImage(true);
     try {
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", pendingImage);
       formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
 
       const res = await fetch(CLOUDINARY_UPLOAD_URL, { method: "POST", body: formData });
@@ -182,12 +216,67 @@ const Conversation = () => {
         image_url: data.secure_url,
       });
       if (error) throw error;
+
+      cancelPendingImage();
     } catch {
       toast({ title: "Failed to send image", variant: "destructive" });
     } finally {
       setUploadingImage(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
+  };
+
+  const startEdit = (msg: Message) => {
+    setEditingMessageId(msg.id);
+    setEditText(msg.content || "");
+    setActiveMessageId(null);
+  };
+
+  const cancelEdit = () => {
+    setEditingMessageId(null);
+    setEditText("");
+  };
+
+  const saveEdit = async (messageId: string) => {
+    const trimmed = editText.trim();
+    if (!trimmed) return;
+
+    const { error } = await supabase
+      .from("messages")
+      .update({ content: trimmed, edited_at: new Date().toISOString() })
+      .eq("id", messageId);
+
+    if (error) {
+      toast({ title: "Failed to edit message", variant: "destructive" });
+      return;
+    }
+    // Reflect locally right away; realtime UPDATE will also confirm it.
+    setMessages((prev) =>
+      prev.map((m) => (m.id === messageId ? { ...m, content: trimmed, edited_at: new Date().toISOString() } : m))
+    );
+    cancelEdit();
+  };
+
+  const confirmDeleteMessage = async () => {
+    if (!deleteMessageTarget) return;
+    const { error } = await supabase.from("messages").delete().eq("id", deleteMessageTarget);
+    if (error) {
+      toast({ title: "Failed to delete message", variant: "destructive" });
+    } else {
+      setMessages((prev) => prev.filter((m) => m.id !== deleteMessageTarget));
+    }
+    setDeleteMessageTarget(null);
+  };
+
+  const confirmDeleteChat = async () => {
+    if (!id) return;
+    const { error } = await supabase.from("conversations").delete().eq("id", id);
+    setDeleteChatConfirm(false);
+    if (error) {
+      toast({ title: "Failed to delete conversation", variant: "destructive" });
+      return;
+    }
+    toast({ title: "Conversation deleted" });
+    navigate("/messages");
   };
 
   if (loading) {
@@ -213,7 +302,7 @@ const Conversation = () => {
               {otherName.charAt(0).toUpperCase()}
             </div>
           )}
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h1 className="font-semibold text-foreground truncate">{otherName}</h1>
             {productName && productId && (
               <Link to={`/product/${productId}`} className="text-xs text-secondary flex items-center gap-1 hover:underline truncate">
@@ -221,30 +310,74 @@ const Conversation = () => {
               </Link>
             )}
           </div>
+          <button
+            onClick={() => setDeleteChatConfirm(true)}
+            className="text-muted-foreground hover:text-destructive transition-colors p-1.5 shrink-0"
+            title="Delete conversation"
+            aria-label="Delete conversation"
+          >
+            <Trash2 className="w-4.5 h-4.5" />
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto py-4 space-y-3">
           {messages.length === 0 ? (
             <p className="text-center text-muted-foreground text-sm py-10">
-              Say hello ,  start the conversation.
+              Say hello 👋 — start the conversation.
             </p>
           ) : (
             messages.map((msg) => {
               const isMine = msg.sender_id === userId;
+              const isEditing = editingMessageId === msg.id;
+              const showActions = activeMessageId === msg.id;
+
               return (
-                <div key={msg.id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
+                <div key={msg.id} className={`flex flex-col ${isMine ? "items-end" : "items-start"}`}>
                   <div
-                    className={`max-w-[75%] rounded-2xl px-4 py-2 ${
+                    onClick={() => isMine && !msg.image_url && setActiveMessageId(showActions ? null : msg.id)}
+                    className={`max-w-[75%] rounded-2xl px-4 py-2 ${isMine ? "cursor-pointer" : ""} ${
                       isMine
                         ? "bg-secondary text-secondary-foreground rounded-br-sm"
                         : "bg-muted text-foreground rounded-bl-sm"
                     }`}
                   >
                     {msg.image_url && (
-                      <img src={msg.image_url} alt="Sent" className="rounded-lg max-w-full mb-1" loading="lazy" />
+                      <div className="relative group">
+                        <img src={msg.image_url} alt="Sent" className="rounded-lg max-w-full mb-1" loading="lazy" />
+                        {isMine && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setDeleteMessageTarget(msg.id); }}
+                            className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-1 opacity-80 hover:opacity-100"
+                            title="Delete image"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     )}
-                    {msg.content && <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>}
+
+                    {isEditing ? (
+                      <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="text"
+                          value={editText}
+                          onChange={(e) => setEditText(e.target.value)}
+                          autoFocus
+                          className="flex-1 bg-background/80 text-foreground rounded-lg px-2 py-1 text-sm outline-none"
+                        />
+                        <button onClick={() => saveEdit(msg.id)} className="text-xs font-semibold shrink-0">Save</button>
+                        <button onClick={cancelEdit} className="text-xs shrink-0 opacity-70">Cancel</button>
+                      </div>
+                    ) : (
+                      msg.content && <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
+                    )}
+
                     <div className={`flex items-center gap-1 mt-1 ${isMine ? "justify-end" : "justify-start"}`}>
+                      {msg.edited_at && (
+                        <span className={`text-[10px] ${isMine ? "text-secondary-foreground/70" : "text-muted-foreground"}`}>
+                          edited
+                        </span>
+                      )}
                       <p className={`text-[10px] ${isMine ? "text-secondary-foreground/70" : "text-muted-foreground"}`}>
                         {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </p>
@@ -257,12 +390,42 @@ const Conversation = () => {
                       )}
                     </div>
                   </div>
+
+                  {/* Edit / Delete actions for your own text messages */}
+                  {isMine && showActions && !isEditing && msg.content && (
+                    <div className="flex items-center gap-3 mt-1 px-1">
+                      <button onClick={() => startEdit(msg)} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+                        <Pencil className="w-3 h-3" /> Edit
+                      </button>
+                      <button onClick={() => setDeleteMessageTarget(msg.id)} className="text-xs text-destructive flex items-center gap-1">
+                        <Trash2 className="w-3 h-3" /> Delete
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })
           )}
           <div ref={bottomRef} />
         </div>
+
+        {/* Pending image preview — shown before sending */}
+        {pendingImagePreview && (
+          <div className="flex items-center gap-3 py-2 px-1 border-t border-border/50">
+            <div className="relative">
+              <img src={pendingImagePreview} alt="Preview" className="w-16 h-16 rounded-lg object-cover" />
+              <button
+                onClick={cancelPendingImage}
+                className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+            <Button onClick={confirmSendImage} variant="secondary" size="sm" disabled={uploadingImage}>
+              {uploadingImage ? "Sending…" : "Send Photo"}
+            </Button>
+          </div>
+        )}
 
         <form onSubmit={handleSendText} className="flex items-center gap-2 py-3 border-t border-border/50">
           <input
@@ -294,6 +457,28 @@ const Conversation = () => {
           </Button>
         </form>
       </div>
+
+      <ConfirmModal
+        open={!!deleteMessageTarget}
+        onOpenChange={(open) => { if (!open) setDeleteMessageTarget(null); }}
+        title="Delete Message"
+        description="Delete this message? This cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="destructive"
+        onConfirm={confirmDeleteMessage}
+      />
+
+      <ConfirmModal
+        open={deleteChatConfirm}
+        onOpenChange={setDeleteChatConfirm}
+        title="Delete Conversation"
+        description="Delete this entire conversation? This will remove it for both you and the other person and cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="destructive"
+        onConfirm={confirmDeleteChat}
+      />
     </div>
   );
 };
