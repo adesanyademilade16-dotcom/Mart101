@@ -71,7 +71,16 @@ const Messages = () => {
           .limit(1)
           .maybeSingle();
 
-        const { count } = await supabase
+        // Skip conversations with zero messages — these are threads that
+        // were opened (e.g. "Message Seller" tapped) but never actually used.
+        const { count: totalCount } = await supabase
+          .from("messages")
+          .select("id", { count: "exact", head: true })
+          .eq("conversation_id", c.id);
+
+        if (!totalCount) return null;
+
+        const { count: unreadCount } = await supabase
           .from("messages")
           .select("id", { count: "exact", head: true })
           .eq("conversation_id", c.id)
@@ -84,12 +93,12 @@ const Messages = () => {
           other_avatar: other?.avatar_url || null,
           product_name: product?.name || null,
           product_image: product?.image_url || null,
-          last_message: lastMsg?.content || (lastMsg?.image_url ? "📷 Photo" : "No messages yet"),
-          unread_count: count || 0,
+          last_message: lastMsg?.content || (lastMsg?.image_url ? "📷 Photo" : ""),
+          unread_count: unreadCount || 0,
         };
       }));
 
-      setConversations(enriched);
+      setConversations(enriched.filter((c): c is NonNullable<typeof c> => c !== null));
       setLoading(false);
     };
     load();
