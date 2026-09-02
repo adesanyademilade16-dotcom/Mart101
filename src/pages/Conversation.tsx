@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { ArrowLeft, Send, Image as ImageIcon, ShoppingBag } from "lucide-react";
+import { ArrowLeft, Send, Image as ImageIcon, ShoppingBag, Check, CheckCheck } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ interface Message {
   content: string | null;
   image_url: string | null;
   created_at: string;
+  read_at: string | null;
 }
 
 const Conversation = () => {
@@ -97,7 +98,7 @@ const Conversation = () => {
     load();
   }, [id, navigate, toast]);
 
-  // Realtime: listen for new messages in this conversation
+  // Realtime: listen for new messages AND read-status changes in this conversation
   useEffect(() => {
     if (!id) return;
     const channel = supabase
@@ -106,10 +107,19 @@ const Conversation = () => {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${id}` },
         (payload) => {
-          setMessages((prev) => [...prev, payload.new as Message]);
-          if ((payload.new as Message).sender_id !== userId) {
+          const newMsg = payload.new as Message;
+          setMessages((prev) => (prev.some((m) => m.id === newMsg.id) ? prev : [...prev, newMsg]));
+          if (newMsg.sender_id !== userId) {
             supabase.rpc("mark_conversation_read", { _conversation_id: id });
           }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "messages", filter: `conversation_id=eq.${id}` },
+        (payload) => {
+          const updated = payload.new as Message;
+          setMessages((prev) => prev.map((m) => (m.id === updated.id ? { ...m, read_at: updated.read_at } : m)));
         }
       )
       .subscribe();
@@ -234,9 +244,18 @@ const Conversation = () => {
                       <img src={msg.image_url} alt="Sent" className="rounded-lg max-w-full mb-1" loading="lazy" />
                     )}
                     {msg.content && <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>}
-                    <p className={`text-[10px] mt-1 ${isMine ? "text-secondary-foreground/70" : "text-muted-foreground"}`}>
-                      {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    </p>
+                    <div className={`flex items-center gap-1 mt-1 ${isMine ? "justify-end" : "justify-start"}`}>
+                      <p className={`text-[10px] ${isMine ? "text-secondary-foreground/70" : "text-muted-foreground"}`}>
+                        {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                      {isMine && (
+                        msg.read_at ? (
+                          <CheckCheck className="w-3.5 h-3.5 text-blue-400" />
+                        ) : (
+                          <Check className="w-3.5 h-3.5 text-secondary-foreground/70" />
+                        )
+                      )}
+                    </div>
                   </div>
                 </div>
               );
