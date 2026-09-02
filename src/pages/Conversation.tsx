@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { ArrowLeft, Send, Image as ImageIcon, ShoppingBag, Check, CheckCheck, X, Pencil, Trash2, MoreVertical } from "lucide-react";
+import { ArrowLeft, Send, Paperclip, ShoppingBag, Check, CheckCheck, X, Pencil, Trash2, Smile } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,12 @@ const CLOUDINARY_UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOU
 
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+
+const EMOJIS = [
+  "😀", "😂", "😍", "😊", "😉", "😢", "😭", "😡", "👍", "👎",
+  "🙏", "👏", "🔥", "❤️", "💯", "🎉", "😴", "🤔", "😅", "🙌",
+  "✅", "❌", "📦", "💰", "🛍️", "📱", "💻", "👕", "📚", "🚗",
+];
 
 interface Message {
   id: string;
@@ -30,7 +36,9 @@ const Conversation = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
 
   const [userId, setUserId] = useState<string | null>(null);
   const [otherName, setOtherName] = useState("");
@@ -42,12 +50,11 @@ const Conversation = () => {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
-  // Image about to be sent — shown as a preview instead of auto-sending
   const [pendingImage, setPendingImage] = useState<File | null>(null);
   const [pendingImagePreview, setPendingImagePreview] = useState<string | null>(null);
 
-  // Which message's action menu (edit/delete) is open
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
@@ -111,7 +118,6 @@ const Conversation = () => {
     load();
   }, [id, navigate, toast]);
 
-  // Realtime: new messages, read-status updates, edits, and deletions
   useEffect(() => {
     if (!id) return;
     const channel = supabase
@@ -154,8 +160,27 @@ const Conversation = () => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  const handleSendText = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Close the emoji picker when tapping outside it
+  useEffect(() => {
+    if (!showEmojiPicker) return;
+    const handler = (e: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showEmojiPicker]);
+
+  // Auto-grow the textarea as the user types, up to a max height
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 120) + "px";
+  }, [text]);
+
+  const handleSendText = async () => {
     const trimmed = text.trim();
     if (!trimmed || !id || !userId) return;
 
@@ -172,6 +197,14 @@ const Conversation = () => {
       toast({ title: "Failed to send message", variant: "destructive" });
       setText(trimmed);
     }
+  };
+
+  // Enter alone inserts a newline (default textarea behavior); only the
+  // Send button submits. No special-casing needed here.
+
+  const handleEmojiClick = (emoji: string) => {
+    setText((prev) => prev + emoji);
+    textareaRef.current?.focus();
   };
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -249,7 +282,6 @@ const Conversation = () => {
       toast({ title: "Failed to edit message", variant: "destructive" });
       return;
     }
-    // Reflect locally right away; realtime UPDATE will also confirm it.
     setMessages((prev) =>
       prev.map((m) => (m.id === messageId ? { ...m, content: trimmed, edited_at: new Date().toISOString() } : m))
     );
@@ -391,7 +423,6 @@ const Conversation = () => {
                     </div>
                   </div>
 
-                  {/* Edit / Delete actions for your own text messages */}
                   {isMine && showActions && !isEditing && msg.content && (
                     <div className="flex items-center gap-3 mt-1 px-1">
                       <button onClick={() => startEdit(msg)} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
@@ -409,7 +440,6 @@ const Conversation = () => {
           <div ref={bottomRef} />
         </div>
 
-        {/* Pending image preview — shown before sending */}
         {pendingImagePreview && (
           <div className="flex items-center gap-3 py-2 px-1 border-t border-border/50">
             <div className="relative">
@@ -427,35 +457,75 @@ const Conversation = () => {
           </div>
         )}
 
-        <form onSubmit={handleSendText} className="flex items-center gap-2 py-3 border-t border-border/50">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="hidden"
-            onChange={handleImageSelect}
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploadingImage}
-            className="shrink-0"
-          >
-            <ImageIcon className="w-5 h-5" />
-          </Button>
-          <input
-            type="text"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="Type a message…"
-            className="flex-1 bg-muted rounded-full px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-secondary"
-          />
-          <Button type="submit" size="icon" variant="secondary" disabled={sending || !text.trim()} className="shrink-0 rounded-full">
-            <Send className="w-4 h-4" />
-          </Button>
-        </form>
+        {/* WhatsApp-style input row: emoji (left) · rounded bar with attachment inside · circular send (right) */}
+        <div className="relative py-3 border-t border-border/50">
+          {showEmojiPicker && (
+            <div
+              ref={emojiPickerRef}
+              className="absolute bottom-full left-0 mb-2 bg-card border border-border rounded-xl shadow-lg p-3 grid grid-cols-6 gap-1 z-10 w-64"
+            >
+              {EMOJIS.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => handleEmojiClick(emoji)}
+                  className="text-xl hover:bg-muted rounded-lg p-1.5 transition-colors"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowEmojiPicker((prev) => !prev)}
+              className="shrink-0 text-muted-foreground hover:text-foreground p-2"
+              aria-label="Emoji"
+            >
+              <Smile className="w-6 h-6" />
+            </button>
+
+            <div className="flex-1 flex items-end gap-1 bg-muted rounded-3xl px-2 py-1.5 min-w-0">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={handleImageSelect}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingImage}
+                className="shrink-0 text-muted-foreground hover:text-foreground p-1.5"
+                aria-label="Attach image"
+              >
+                <Paperclip className="w-5 h-5" />
+              </button>
+              <textarea
+                ref={textareaRef}
+                rows={1}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="Type a message…"
+                className="flex-1 bg-transparent resize-none outline-none text-sm py-1.5 max-h-[120px] min-w-0"
+              />
+            </div>
+
+            <Button
+              type="button"
+              onClick={handleSendText}
+              size="icon"
+              variant="secondary"
+              disabled={sending || !text.trim()}
+              className="shrink-0 rounded-full w-11 h-11"
+            >
+              <Send className="w-4.5 h-4.5" />
+            </Button>
+          </div>
+        </div>
       </div>
 
       <ConfirmModal
