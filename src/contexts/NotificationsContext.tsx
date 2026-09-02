@@ -48,7 +48,12 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
       setUserId(uid);
       await refreshConversationIds(uid);
       await refreshUnreadCount(uid);
-      if ("Notification" in window && Notification.permission !== "denied") {
+      if (
+        "Notification" in window &&
+        Notification.permission !== "denied" &&
+        !sessionStorage.getItem("push_subscribe_attempted")
+      ) {
+        sessionStorage.setItem("push_subscribe_attempted", "true");
         const { enablePushNotifications } = await import("@/lib/pushNotifications");
         enablePushNotifications();
       }
