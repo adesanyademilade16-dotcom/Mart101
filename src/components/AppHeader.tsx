@@ -115,10 +115,17 @@ const AppHeader = () => {
                   key={link.label}
                   to={link.to}
                   onClick={closeMenu}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-white/10"
+                  className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-white/10"
                 >
-                  <link.icon className="h-5 w-5 text-gold" />
-                  {link.label}
+                  <span className="flex items-center gap-3">
+                    <link.icon className="h-5 w-5 text-gold" />
+                    {link.label}
+                  </span>
+                  {link.to === "/messages" && unreadCount > 0 && (
+                    <span className="bg-destructive text-destructive-foreground text-xs font-bold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center">
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  )}
                 </Link>
               ))}
               {isAdmin && (
