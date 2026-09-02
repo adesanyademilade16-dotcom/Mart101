@@ -36,6 +36,7 @@ const AppHeader = () => {
   const [loggedIn, setLoggedIn] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const { isAdmin } = useAdmin();
+  const { unreadCount } = useNotifications();
   const navigate = useNavigate();
 
   useEffect(() => {
