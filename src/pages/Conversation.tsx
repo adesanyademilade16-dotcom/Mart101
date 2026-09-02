@@ -323,7 +323,7 @@ const Conversation = () => {
         <div className="flex-1 overflow-y-auto py-4 space-y-3">
           {messages.length === 0 ? (
             <p className="text-center text-muted-foreground text-sm py-10">
-              Say hello 👋 — start the conversation.
+              Start the conversation.
             </p>
           ) : (
             messages.map((msg) => {
