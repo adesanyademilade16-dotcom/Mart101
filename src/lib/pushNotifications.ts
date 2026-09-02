@@ -14,40 +14,60 @@ function urlBase64ToUint8Array(base64String: string) {
 }
 
 export async function enablePushNotifications(): Promise<boolean> {
-  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+  try {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      console.warn("Push not supported on this browser");
+      return false;
+    }
+
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      console.warn("Notification permission not granted:", permission);
+      return false;
+    }
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      console.warn("No session — cannot save push subscription");
+      return false;
+    }
+
+    const registration = await navigator.serviceWorker.ready;
+
+    let subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+    }
+
+    const json = subscription.toJSON();
+    if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
+      console.error("Subscription missing endpoint/keys:", json);
+      return false;
+    }
+
+    const { error } = await supabase.from("push_subscriptions").upsert(
+      {
+        user_id: session.user.id,
+        endpoint: json.endpoint,
+        p256dh: json.keys.p256dh,
+        auth: json.keys.auth,
+      },
+      { onConflict: "endpoint" }
+    );
+
+    if (error) {
+      console.error("Failed to save push subscription:", error);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error("enablePushNotifications error:", err);
     return false;
   }
-
-  const permission = await Notification.requestPermission();
-  if (permission !== "granted") return false;
-
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return false;
-
-  const registration = await navigator.serviceWorker.ready;
-
-  let subscription = await registration.pushManager.getSubscription();
-  if (!subscription) {
-    subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-    });
-  }
-
-  const json = subscription.toJSON();
-  if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) return false;
-
-  const { error } = await supabase.from("push_subscriptions").upsert(
-    {
-      user_id: session.user.id,
-      endpoint: json.endpoint,
-      p256dh: json.keys.p256dh,
-      auth: json.keys.auth,
-    },
-    { onConflict: "endpoint" }
-  );
-
-  return !error;
 }
 
 export async function isPushEnabled(): Promise<boolean> {
