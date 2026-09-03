@@ -238,7 +238,7 @@ const EditProfile = () => {
             <h1 className="text-lg font-semibold text-foreground mb-1">Edit Profile</h1>
             {!isPasswordAccount && (
               <p className="text-xs text-muted-foreground -mt-2">
-                Signed in with Google — no password confirmation needed.
+                Signed in with Google , no password confirmation needed.
               </p>
             )}
 
