@@ -1,3 +1,4 @@
+import { useSEO } from "@/hooks/useSEO";
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { ArrowLeft, ShoppingBag, MessageCircle, Flag, CalendarDays, Package } from "lucide-react";
@@ -68,6 +69,20 @@ const SellerProfile = () => {
     };
     fetchSeller();
   }, [sellerId]);
+
+  useSEO(
+    seller
+      ? {
+          title: `${seller.full_name} - Seller Profile`,
+          description: `View products listed by ${seller.full_name} on MART101, OOU's trusted student marketplace.`,
+          path: `/seller/${seller.user_id}`,
+        }
+      : {
+          title: "Seller Profile",
+          description: "View this seller's profile and listings on MART101.",
+          path: `/seller/${sellerId}`,
+        }
+  );
 
   const handleContact = () => {
     if (!seller) return;
