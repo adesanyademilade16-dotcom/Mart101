@@ -1,5 +1,6 @@
 import { useSEO } from "@/hooks/useSEO";
 import AppHeader from "@/components/AppHeader";
+import AppFooter from "@/components/AppFooter";
 import { MessageCircle, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -7,7 +8,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 const faqs = [
   {
     q: "How do I sell an item?",
-    a: "Create an account, go to your dashboard, and click \"Add Product.\"",
+    a: 'Create an account, go to your dashboard, and click "Add Product."',
   },
   {
     q: "How do I contact a seller?",
@@ -25,14 +26,15 @@ const faqs = [
 
 const Help = () => {
   useSEO({
-  title: "Help & Support",
-  description: "Find answers to common questions about buying, selling, and staying safe on MART101.",
-  path: "/help",
-});
+    title: "Help & Support",
+    description: "Find answers to common questions about buying, selling, and staying safe on MART101.",
+    path: "/help",
+  });
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <AppHeader />
-      <main className="container mx-auto px-4 py-10 max-w-3xl">
+      <main className="flex-1 container mx-auto px-4 py-10 max-w-3xl">
         <h1 className="text-3xl font-bold text-foreground mb-2">Need Help?</h1>
         <p className="text-muted-foreground mb-8">
           If you have questions, need assistance, or want to report an issue, we're here to help.
@@ -54,7 +56,7 @@ const Help = () => {
           </a>
 
           {/* Email */}
-          <a href="mailto:Gremdev01@gmail.com" className="block">
+          <a href="mailto:campusmart101@gmail.com" className="block">
             <Button variant="secondary" className="w-full h-14 text-base font-semibold gap-2">
               <Mail className="w-5 h-5" />
               campusmart101@gmail.com
@@ -79,6 +81,7 @@ const Help = () => {
           </Accordion>
         </div>
       </main>
+      <AppFooter />
     </div>
   );
 };
