@@ -1,7 +1,13 @@
+import { useSEO } from "@/hooks/useSEO";
 import AppHeader from "@/components/AppHeader";
 import AppFooter from "@/components/AppFooter";
 
 const Privacy = () => (
+  useSEO({
+  title: "Privacy Policy",
+  description: "Read how MART101 collects, uses, and protects your personal information.",
+  path: "/privacy",
+});
   <div className="min-h-screen bg-background flex flex-col">
     <AppHeader />
     <main className="flex-1 container mx-auto px-4 py-10 max-w-3xl">
