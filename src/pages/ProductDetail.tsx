@@ -85,6 +85,35 @@ const ProductDetail = () => {
     fetch();
   }, [id]);
 
+  useSEO(
+    product
+      ? {
+          title: `${product.name} - ₦${Number(product.price).toLocaleString()}`,
+          description: (product.description || `${product.name} available on MART101, OOU's student marketplace.`).slice(0, 160),
+          path: `/product/${product.id}`,
+          image: product.image_url || undefined,
+          structuredData: {
+            "@context": "https://schema.org",
+            "@type": "Product",
+            name: product.name,
+            description: product.description || product.name,
+            image: product.image_url ? [product.image_url] : undefined,
+            offers: {
+              "@type": "Offer",
+              priceCurrency: "NGN",
+              price: product.price,
+              availability: "https://schema.org/InStock",
+              url: `https://mart101.vercel.app/product/${product.id}`,
+            },
+          },
+        }
+      : {
+          title: "Product",
+          description: "View this listing on MART101.",
+          path: `/product/${id}`,
+        }
+  );
+
   const handleBuy = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
