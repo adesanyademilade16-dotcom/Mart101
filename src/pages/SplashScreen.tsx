@@ -61,6 +61,12 @@ const SplashScreen = () => {
     fetchRecent();
   }, []);
 
+  useSEO({
+    title: "MART101 - Buy & Sell Online | OOU Campus Marketplace",
+    description: "MART101 is Olabisi Onabanjo University's trusted student marketplace. Buy and sell laptops, phones, textbooks, fashion and more with verified OOU students.",
+    path: "/",
+  });
+
   if (!showContent) {
     return (
       <div className="fixed inset-0 gradient-splash flex flex-col items-center justify-center overflow-hidden">
