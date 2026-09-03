@@ -1,3 +1,4 @@
+import { useSEO } from "@/hooks/useSEO";
 import AppHeader from "@/components/AppHeader";
 import AppFooter from "@/components/AppFooter";
 import { Zap, Shield, Upload, ShieldCheck } from "lucide-react";
@@ -16,6 +17,11 @@ const team = [
 ];
 
 const About = () => {
+  useSEO({
+    title: "About MART101 - OOU's Student Marketplace",
+    description: "Learn about MART101, the trusted campus marketplace built for Olabisi Onabanjo University students by TRIFORGE.",
+    path: "/about",
+  });
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <AppHeader />
