@@ -1,9 +1,15 @@
+import { useSEO } from "@/hooks/useSEO";
 import AppHeader from "@/components/AppHeader";
 import AppFooter from "@/components/AppFooter";
 import { MessageCircle, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const Contact = () => (
+  useSEO({
+  title: "Contact Us",
+  description: "Get in touch with the MART101 team for support, feedback, or partnership inquiries.",
+  path: "/contact",
+});
   <div className="min-h-screen bg-background flex flex-col">
     <AppHeader />
     <main className="flex-1 container mx-auto px-4 py-10 max-w-3xl">
