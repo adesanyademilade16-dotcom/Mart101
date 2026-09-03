@@ -1,3 +1,4 @@
+import { useSEO } from "@/hooks/useSEO";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ShoppingBag, Search, Flag } from "lucide-react";
@@ -71,6 +72,12 @@ const Marketplace = () => {
     };
     fetchProducts();
   }, []);
+
+  useSEO({
+    title: "Browse Marketplace - Laptops, Phones, Textbooks & More",
+    description: "Explore listings from OOU students. Find affordable laptops, phones, textbooks, fashion, and accommodation deals on MART101.",
+    path: "/marketplace",
+  });
 
   const handleReportClick = (e: React.MouseEvent, product: Product) => {
     e.preventDefault();
