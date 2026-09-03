@@ -1,3 +1,4 @@
+import { useSEO } from "@/hooks/useSEO";
 import AppHeader from "@/components/AppHeader";
 import AppFooter from "@/components/AppFooter";
 import { Shield, MapPin, Eye, MessageCircle, Clock, CheckCircle, AlertTriangle, Users } from "lucide-react";
@@ -56,6 +57,11 @@ const redFlags = [
 ];
 
 const SafeCampusTrading = () => {
+  useSEO({
+  title: "Safe Campus Trading Tips for OOU Students",
+  description: "Practical tips for buying and selling safely on campus at Olabisi Onabanjo University.",
+  path: "/blog/safe-campus-trading-oou",
+});
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <AppHeader />
