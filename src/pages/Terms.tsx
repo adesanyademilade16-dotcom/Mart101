@@ -1,7 +1,13 @@
+import { useSEO } from "@/hooks/useSEO";
 import AppHeader from "@/components/AppHeader";
 import AppFooter from "@/components/AppFooter";
 
 const Terms = () => (
+  useSEO({
+  title: "Terms of Service",
+  description: "Read MART101's terms of service governing use of the OOU student marketplace.",
+  path: "/terms",
+});
   <div className="min-h-screen bg-background flex flex-col">
     <AppHeader />
     <main className="flex-1 container mx-auto px-4 py-10 max-w-3xl">
