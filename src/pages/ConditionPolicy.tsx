@@ -1,3 +1,4 @@
+import { useSEO } from "@/hooks/useSEO";
 import AppHeader from "@/components/AppHeader";
 import AppFooter from "@/components/AppFooter";
 import { ShieldCheck, PackageCheck, AlertTriangle, Eye, MessageCircle, Ban, Trash2, UserX, Sparkles, RefreshCw } from "lucide-react";
@@ -22,6 +23,11 @@ const violations = [
 ];
 
 const ConditionPolicy = () => (
+  useSEO({
+  title: "Product Condition Policy",
+  description: "Understand MART101's item condition categories — Brand New, Used Like New, Used Good, and Used Fair.",
+  path: "/condition-policy",
+});
   <div className="min-h-screen bg-background flex flex-col">
     <AppHeader />
     <main className="flex-1 container mx-auto px-4 py-10 max-w-3xl">
