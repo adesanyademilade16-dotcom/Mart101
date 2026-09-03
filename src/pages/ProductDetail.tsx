@@ -1,3 +1,4 @@
+import { useSEO } from "@/hooks/useSEO";
 import { useEffect, useState, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, MessageCircle, ShoppingBag, Flag, AlertTriangle } from "lucide-react";
