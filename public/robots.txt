@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /edit-profile
+Disallow: /complete-profile
+Disallow: /admin
+Disallow: /messages
+Disallow: /login
+Disallow: /signup
+
+Sitemap: https://mart101.vercel.app/sitemap.xml
