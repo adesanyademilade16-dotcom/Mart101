@@ -1,3 +1,4 @@
+import { useSEO } from "@/hooks/useSEO";
 import AppHeader from "@/components/AppHeader";
 import { MessageCircle, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,11 @@ const faqs = [
 ];
 
 const Help = () => {
+  useSEO({
+  title: "Help & Support",
+  description: "Find answers to common questions about buying, selling, and staying safe on MART101.",
+  path: "/help",
+});
   return (
     <div className="min-h-screen bg-background">
       <AppHeader />
