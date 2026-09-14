@@ -189,6 +189,11 @@ const SellerProfile = () => {
             <Button onClick={() => setShowReportConfirm(true)} variant="outline" className="flex-1 sm:flex-none">
               <Flag className="w-4 h-4 mr-1.5" /> Report
             </Button>
+            <ShareButton
+              url={`https://mart101.vercel.app/seller/${seller.user_id}`}
+              title={`${seller.full_name} on MART101`}
+              text={`Check out ${seller.full_name}'s listings on MART101`}
+            />
           </div>
         </div>
 
