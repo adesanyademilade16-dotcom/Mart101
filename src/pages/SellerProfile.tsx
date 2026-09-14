@@ -11,6 +11,7 @@ import AppHeader from "@/components/AppHeader";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import ConfirmModal from "@/components/ConfirmModal";
 import MessageSellerButton from "@/components/MessageSellerButton";
+import ShareButton from "@/components/ShareButton";
 
 interface SellerData {
   user_id: string;
