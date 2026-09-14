@@ -125,7 +125,7 @@ const Marketplace = () => {
       <section className="bg-navy pb-6 pt-4">
         <h1 className="sr-only">OOU Student Marketplace</h1>
         <p className="text-primary-foreground/70 text-sm text-center max-w-lg mx-auto px-4 pb-3">
-          Browse items listed by students of Olabisi Onabanjo University (OOU). Buy and sell within campus easily.
+          Browse items listed by students. Buy and sell within campus easily.
         </p>
         <div className="max-w-2xl mx-auto px-4 space-y-3">
           <div className="relative">
