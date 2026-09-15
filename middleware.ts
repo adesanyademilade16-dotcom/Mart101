@@ -1,7 +1,6 @@
 import { rewrite, next } from "@vercel/edge";
 
 export const config = {
-  runtime: "nodejs",
   matcher: ["/product/:path*", "/seller/:path*"],
 };
 
