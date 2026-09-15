@@ -1,28 +1,6 @@
 {
   "rewrites": [
     {
-      "source": "/product/:id",
-      "has": [
-        {
-          "type": "header",
-          "key": "user-agent",
-          "value": ".*(facebookexternalhit|WhatsApp|Twitterbot|LinkedInBot|Slackbot|TelegramBot|Discordbot|Pinterest|Googlebot).*"
-        }
-      ],
-      "destination": "/api/share/product/:id"
-    },
-    {
-      "source": "/seller/:id",
-      "has": [
-        {
-          "type": "header",
-          "key": "user-agent",
-          "value": ".*(facebookexternalhit|WhatsApp|Twitterbot|LinkedInBot|Slackbot|TelegramBot|Discordbot|Pinterest|Googlebot).*"
-        }
-      ],
-      "destination": "/api/share/seller/:id"
-    },
-    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
