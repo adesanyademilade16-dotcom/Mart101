@@ -1,7 +1,8 @@
 import { rewrite, next } from "@vercel/edge";
 
 export const config = {
-matcher: ["/product/:path*", "/seller/:path*"],
+  runtime: "nodejs",
+  matcher: ["/product/:path*", "/seller/:path*"],
 };
 
 const BOT_PATTERN = /facebookexternalhit|WhatsApp|Twitterbot|LinkedInBot|Slackbot|TelegramBot|Discordbot|Pinterest|Googlebot|Applebot|redditbot/i;
