@@ -17,7 +17,7 @@ const Contact = () => {
       <main className="flex-1 container mx-auto px-4 py-10 max-w-3xl">
         <h1 className="text-3xl font-bold text-foreground mb-2">Contact MART101</h1>
         <p className="text-muted-foreground mb-8">
-          For inquiries, partnerships, support, or campus collaboration, reach out to us.
+          For inquiries, partnnerships, support, or campus collaboration, reach out to us.
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <a href="https://wa.me/2349131778249" target="_blank" rel="noopener noreferrer" className="block">
