@@ -17,57 +17,53 @@ export default async function handler(req: any, res: any) {
   const { id } = req.query;
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  const { data: product, error } = await supabase
+  const { data: product } = await supabase
     .from("products")
     .select("id, name, price, description, image_url")
     .eq("id", id)
     .maybeSingle();
 
   const pageUrl = `${SITE_URL}/product/${id}`;
-  
-  // Fallbacks if product isn't found
   const title = product ? `${product.name} - ₦${Number(product.price).toLocaleString()} | MART101` : "MART101 Listing";
   const description = product
     ? (product.description || `${product.name} available on MART101.`).slice(0, 160)
     : "View this listing on MART101, OOU's student marketplace.";
-  
-  // Ensure we use the product's image if available, otherwise fallback
   const image = product?.image_url && product.image_url.trim() !== "" ? product.image_url : DEFAULT_IMAGE;
 
+  // Check user-agent to see if it's a social media crawler (WhatsApp, Facebook, Twitter, Telegram, etc.)
+  const userAgent = (req.headers["user-agent"] || "").toLowerCase();
+  const isBot = /bot|facebookexternalhit|whatsapp|twitterbot|linkedinbot|telegrambot|slackbot|discordbot/i.test(userAgent);
+
+  // If it's a normal human user, instantly redirect them to the frontend page with a 302
+  if (!isBot) {
+    res.setHeader("Location", pageUrl);
+    return res.status(302).end();
+  }
+
+  // If it's a bot/crawler, serve the Open Graph metadata HTML page
   const html = `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <title>${escapeHtml(title)}</title>
   <meta name="description" content="${escapeHtml(description)}" />
-  
-  <!-- Open Graph / WhatsApp Meta Tags -->
-  <meta property="og:site_name" content="MART101" />
   <meta property="og:title" content="${escapeHtml(title)}" />
   <meta property="og:description" content="${escapeHtml(description)}" />
   <meta property="og:image" content="${escapeHtml(image)}" />
-  <meta property="og:image:secure_url" content="${escapeHtml(image)}" />
-  <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="630" />
   <meta property="og:url" content="${escapeHtml(pageUrl)}" />
   <meta property="og:type" content="website" />
-
-  <!-- Twitter Meta Tags -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="${escapeHtml(title)}" />
   <meta name="twitter:description" content="${escapeHtml(description)}" />
   <meta name="twitter:image" content="${escapeHtml(image)}" />
-
-  <!-- Redirect for Humans -->
-  <meta http-equiv="refresh" content="0; url=${escapeHtml(pageUrl)}" />
 </head>
 <body>
-  <p>Redirecting to <a href="${escapeHtml(pageUrl)}">${escapeHtml(title)}</a>...</p>
-  <script>window.location.replace(${JSON.stringify(pageUrl)});</script>
+  <h1>${escapeHtml(title)}</h1>
+  <p>${escapeHtml(description)}</p>
 </body>
 </html>`;
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
-  res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate");
-  res.status(200).send(html);
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  return res.status(200).send(html);
 }
