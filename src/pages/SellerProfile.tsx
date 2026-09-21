@@ -12,6 +12,7 @@ import VerifiedBadge from "@/components/VerifiedBadge";
 import ConfirmModal from "@/components/ConfirmModal";
 import MessageSellerButton from "@/components/MessageSellerButton";
 import ShareButton from "@/components/ShareButton";
+import ImageLightbox from "@/components/ImageLightbox";
 
 interface SellerData {
   user_id: string;
@@ -41,6 +42,7 @@ const SellerProfile = () => {
   const [loading, setLoading] = useState(true);
   const [showReportConfirm, setShowReportConfirm] = useState(false);
   const [needsAuth, setNeedsAuth] = useState(false);
+  const [showAvatarLightbox, setShowAvatarLightbox] = useState(false);
 
   useEffect(() => {
     const fetchSeller = async () => {
@@ -164,12 +166,22 @@ const SellerProfile = () => {
         <div className="bg-card rounded-2xl border border-border/50 shadow-sm p-6 mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             {seller.avatar_url ? (
-  <img src={seller.avatar_url} alt={seller.full_name} className="w-16 h-16 rounded-full object-cover shrink-0 border border-border" />
-) : (
-  <div className="w-16 h-16 rounded-full bg-secondary/20 flex items-center justify-center text-secondary text-2xl font-bold shrink-0">
-    {seller.full_name.charAt(0).toUpperCase()}
-  </div>
-)}
+              <button
+                onClick={() => setShowAvatarLightbox(true)}
+                className="shrink-0"
+                aria-label="View profile picture"
+              >
+                <img
+                  src={seller.avatar_url}
+                  alt={seller.full_name}
+                  className="w-16 h-16 rounded-full object-cover border border-border cursor-pointer hover:opacity-90 transition-opacity"
+                />
+              </button>
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-secondary/20 flex items-center justify-center text-secondary text-2xl font-bold shrink-0">
+                {seller.full_name.charAt(0).toUpperCase()}
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <h1 className="text-2xl font-bold text-foreground">{seller.full_name}</h1>
@@ -235,6 +247,15 @@ const SellerProfile = () => {
         variant="destructive"
         onConfirm={handleReportConfirm}
       />
+
+      {seller.avatar_url && (
+        <ImageLightbox
+          src={seller.avatar_url}
+          alt={seller.full_name}
+          open={showAvatarLightbox}
+          onClose={() => setShowAvatarLightbox(false)}
+        />
+      )}
     </div>
   );
 };
