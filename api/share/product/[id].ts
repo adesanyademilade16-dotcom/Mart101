@@ -15,6 +15,12 @@ function escapeHtml(str: string) {
 
 export default async function handler(req: any, res: any) {
   const { id } = req.query;
+  
+  if (!id) {
+    res.setHeader("Location", SITE_URL);
+    return res.status(302).end();
+  }
+
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   const { data: product } = await supabase
@@ -23,6 +29,7 @@ export default async function handler(req: any, res: any) {
     .eq("id", id)
     .maybeSingle();
 
+  // Make sure this matches your exact React router path for products
   const pageUrl = `${SITE_URL}/product/${id}`;
   const title = product ? `${product.name} - ₦${Number(product.price).toLocaleString()} | MART101` : "MART101 Listing";
   const description = product
@@ -30,17 +37,16 @@ export default async function handler(req: any, res: any) {
     : "View this listing on MART101, OOU's student marketplace.";
   const image = product?.image_url && product.image_url.trim() !== "" ? product.image_url : DEFAULT_IMAGE;
 
-  // Check user-agent to see if it's a social media crawler (WhatsApp, Facebook, Twitter, Telegram, etc.)
   const userAgent = (req.headers["user-agent"] || "").toLowerCase();
   const isBot = /bot|facebookexternalhit|whatsapp|twitterbot|linkedinbot|telegrambot|slackbot|discordbot/i.test(userAgent);
 
-  // If it's a normal human user, instantly redirect them to the frontend page with a 302
+  // If it's a regular user clicking the link, issue a clean 302 redirect to the app
   if (!isBot) {
     res.setHeader("Location", pageUrl);
     return res.status(302).end();
   }
 
-  // If it's a bot/crawler, serve the Open Graph metadata HTML page
+  // If it's WhatsApp/Facebook scraper, serve the metadata HTML
   const html = `<!doctype html>
 <html lang="en">
 <head>
