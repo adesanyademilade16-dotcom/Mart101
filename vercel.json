@@ -5,6 +5,10 @@
       "destination": "/api/share/product/[id]"
     },
     {
+      "source": "/api/share/seller/:id",
+      "destination": "/api/share/seller/[id]"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
