@@ -27,7 +27,7 @@ const AppFooter = () => {
         </a>
 
         <p className="text-[11px] max-w-md">
-          MART101 – The student marketplace for Olabisi Onabanjo University (OOU), Ogun State, Nigeria.
+          MART101 – The student marketplace for Nigeria.
         </p>
 
         <div className="text-[11px] pt-3 mt-1 border-t border-white/10 w-full">
