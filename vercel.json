@@ -1,11 +1,7 @@
 {
   "rewrites": [
     {
-      "source": "/api/share/product/:id",
-      "destination": "/api/share/product/[id]"
-    },
-    {
-      "source": "/api/share/seller/:id",
+      "source": "/share/seller/:id",
       "destination": "/api/share/seller/[id]"
     },
     {
@@ -13,7 +9,11 @@
       "destination": "/api/share/product/[id]"
     },
     {
-      "source": "/share/seller/:id",
+      "source": "/api/share/product/:id",
+      "destination": "/api/share/product/[id]"
+    },
+    {
+      "source": "/api/share/seller/:id",
       "destination": "/api/share/seller/[id]"
     },
     {
@@ -27,7 +27,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; frame-src 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://*.supabase.co https://*.cloudinary.com https://res.cloudinary.com; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://fonts.googleapis.com https://fonts.gstatic.com https://api.cloudinary.com https://*.cloudinary.com https://res.cloudinary.com; upgrade-insecure-requests"
+          "value": "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; frame-src 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://*.supabase.co https://*.cloudinary.com https://res.cloudinary.com; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://fonts.googleapis.com https://fonts.gstatic.com https://api.cloudinary.com https://res.cloudinary.com; upgrade-insecure-requests"
         },
         {
           "key": "X-Content-Type-Options",
