@@ -8,9 +8,24 @@ interface ShareButtonProps {
   className?: string;
 }
 
+// Turn the in-app SPA link into the bot-friendly share route so WhatsApp
+// scrapes the OG metadata; the serverless function 302-redirects humans
+// back to the SPA.
+function toShareUrl(rawUrl: string): string {
+  try {
+    const u = new URL(rawUrl, window.location.origin);
+    // /seller/:id -> /share/seller/:id, /product/:id -> /share/product/:id
+    u.pathname = u.pathname.replace(/^\/(seller|product)\//, "/share/$1/");
+    return u.toString();
+  } catch {
+    return rawUrl;
+  }
+}
+
 const ShareButton = ({ url, title, text, className }: ShareButtonProps) => {
   const handleShare = async () => {
-    const shareData = { title, text: text || title, url };
+    const shareUrl = toShareUrl(url);
+    const shareData = { title, text: text || title, url: shareUrl };
 
     if (navigator.share) {
       try {
@@ -22,7 +37,7 @@ const ShareButton = ({ url, title, text, className }: ShareButtonProps) => {
     }
 
     // Desktop browsers without the native share sheet: open WhatsApp Web directly.
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(`${text || title}\n${url}`)}`;
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(`${text || title}\n${shareUrl}`)}`;
     window.open(whatsappUrl, "_blank");
   };
 
