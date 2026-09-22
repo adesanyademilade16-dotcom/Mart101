@@ -32,7 +32,7 @@ const About = () => {
           <h1 className="text-4xl font-bold mb-2">About MART101</h1>
           <p className="text-gold font-cursive text-xl mb-4">Built by students, for students.</p>
           <p className="max-w-xl mx-auto text-primary-foreground/80 leading-relaxed">
-            MART101 is the leading OOU marketplace — a campus buy and sell platform built for Olabisi Onabanjo University students. Join thousands of students across Nigeria who trust MART101 for safe, fast campus trading.
+            MART101 is the leading marketplace — a campus buy and sell platform built for students. Join thousands of students across Nigeria who trust MART101 for safe, fast campus trading.
           </p>
         </section>
 
@@ -40,7 +40,7 @@ const About = () => {
         <section className="container mx-auto px-4 pt-10 pb-4 max-w-3xl text-center">
           <h2 className="text-2xl font-bold text-foreground mb-3">Buy and Sell on Campus in Nigeria</h2>
           <p className="text-muted-foreground leading-relaxed text-sm">
-            Campus life at Olabisi Onabanjo University can be expensive and hectic. MART101 helps OOU students sell what they no longer need and find affordable items — right from their hostel or department. Whether it's textbooks, gadgets, fashion, or daily essentials, MART101 is the go-to student marketplace for OOU.
+            Campus life can be expensive and hectic. MART101 helps students sell what they no longer need and find affordable items — right from their hostel or department. Whether it's textbooks, gadgets, fashion, or daily essentials, MART101 is the go-to student marketplace.
           </p>
         </section>
 
