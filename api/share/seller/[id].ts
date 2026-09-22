@@ -13,9 +13,11 @@ function escapeHtml(str: string) {
     .replace(/"/g, "&quot;");
 }
 
+// Ensure the image/avatar is an absolute, publicly-reachable https URL.
 function absoluteImage(raw: string | undefined | null): string {
   if (!raw || raw.trim() === "") return DEFAULT_IMAGE;
   const url = raw.trim();
+  // Relative Supabase Storage path -> full public URL
   if (url.startsWith("/")) return `${SUPABASE_URL}/storage/v1/object/public/${url.replace(/^\//, "")}`;
   return url;
 }
@@ -30,12 +32,10 @@ export default async function handler(req: any, res: any) {
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  // Directly query the profiles/users table (adjust table name if yours is 'profiles' or 'users')
-  const { data: seller } = await supabase
-    .from("profiles") // Change to your actual table name if different (e.g., "users")
-    .select("id, full_name, avatar_url")
-    .eq("id", id)
-    .maybeSingle();
+  // Fetch seller public info using your RPC function
+  const { data: sellerArr } = await supabase
+    .rpc("get_seller_public_info", { seller_ids: [id] });
+  const seller = sellerArr?.[0];
 
   const pageUrl = `${SITE_URL}/seller/${id}`;
   const title = seller ? `${seller.full_name} on MART101` : "Seller Profile | MART101";
@@ -45,6 +45,7 @@ export default async function handler(req: any, res: any) {
 
   let image = absoluteImage(seller?.avatar_url);
 
+  // If it's a Supabase public-storage avatar, resize it to a clean 1200x630 card format
   if (image.includes(`${SUPABASE_URL}/storage/v1/object/public/`) || image.startsWith(`${SUPABASE_URL}/storage/`)) {
     image = image.replace("/object/public/", "/render/image/public/") + "?width=1200&height=630&resize=cover&quality=80";
   }
@@ -52,11 +53,13 @@ export default async function handler(req: any, res: any) {
   const userAgent = (req.headers["user-agent"] || "").toLowerCase();
   const isBot = /bot|facebookexternalhit|whatsapp|twitterbot|linkedinbot|telegrambot|slackbot|discordbot/i.test(userAgent);
 
+  // If it's a normal human user, instantly redirect them with a 302
   if (!isBot) {
     res.setHeader("Location", pageUrl);
     return res.status(302).end();
   }
 
+  // If it's a bot/crawler, serve the Open Graph metadata HTML
   const html = `<!doctype html>
 <html lang="en">
 <head>
