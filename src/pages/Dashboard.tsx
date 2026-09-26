@@ -28,6 +28,31 @@ interface Product {
 
 const MAX_PRICE = 1000000;
 
+const isHeicFile = (file: File): boolean => {
+  const type = file.type.toLowerCase();
+  const name = file.name.toLowerCase();
+  return (
+    type === "image/heic" ||
+    type === "image/heif" ||
+    name.endsWith(".heic") ||
+    name.endsWith(".heif")
+  );
+};
+
+// iPhones default to HEIC photos, which browsers can't display and which
+// aren't in our allowed upload list. Convert them to JPEG in the browser
+// first so sellers on any device can upload, and buyers on any device can
+// actually see the image.
+const convertHeicIfNeeded = async (file: File): Promise<File> => {
+  if (!isHeicFile(file)) return file;
+
+  const heic2any = (await import("heic2any")).default;
+  const convertedBlob = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.85 });
+  const blob = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
+  const newName = file.name.replace(/\.(heic|heif)$/i, ".jpg");
+  return new File([blob], newName, { type: "image/jpeg" });
+};
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -48,6 +73,7 @@ const Dashboard = () => {
   const [extraPreviews, setExtraPreviews] = useState<string[]>([]);
   const [imageError, setImageError] = useState<string | null>(null);
   const [descriptionError, setDescriptionError] = useState<string | null>(null);
+  const [convertingImage, setConvertingImage] = useState(false);
 
   const isUsed = isUsedCondition(newProduct.condition);
   const totalImages = (selectedFile ? 1 : 0) + extraFiles.length;
@@ -102,30 +128,58 @@ const Dashboard = () => {
     return null;
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const error = validateImageFile(file);
-      if (error) {
-        setImageError(error);
+    if (!file) return;
+
+    setImageError(null);
+    let processedFile = file;
+
+    if (isHeicFile(file)) {
+      setConvertingImage(true);
+      try {
+        processedFile = await convertHeicIfNeeded(file);
+      } catch {
+        setImageError("Couldn't process this iPhone photo. Please try a different image.");
+        setConvertingImage(false);
         return;
       }
-      setSelectedFile(file);
-      setPreviewUrl(URL.createObjectURL(file));
-      setImageError(null);
+      setConvertingImage(false);
     }
+
+    const error = validateImageFile(processedFile);
+    if (error) {
+      setImageError(error);
+      return;
+    }
+    setSelectedFile(processedFile);
+    setPreviewUrl(URL.createObjectURL(processedFile));
+    setImageError(null);
   };
 
-  const handleExtraFilesSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleExtraFilesSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
-    const invalidFile = files.find((f) => validateImageFile(f) !== null);
+
+    setImageError(null);
+    setConvertingImage(true);
+    let processedFiles: File[];
+    try {
+      processedFiles = await Promise.all(files.map((f) => convertHeicIfNeeded(f)));
+    } catch {
+      setImageError("Couldn't process one of these photos. Please try different images.");
+      setConvertingImage(false);
+      return;
+    }
+    setConvertingImage(false);
+
+    const invalidFile = processedFiles.find((f) => validateImageFile(f) !== null);
     if (invalidFile) {
       setImageError(validateImageFile(invalidFile)!);
       return;
     }
     const maxExtra = isUsed ? 3 : 4; // used: 4 total (1 main + 3 extra), new: 5 total
-    const combined = [...extraFiles, ...files].slice(0, maxExtra);
+    const combined = [...extraFiles, ...processedFiles].slice(0, maxExtra);
     setExtraFiles(combined);
     setExtraPreviews(combined.map((f) => URL.createObjectURL(f)));
     setImageError(null);
@@ -296,12 +350,12 @@ const Dashboard = () => {
         <div className="glass-card p-6 mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             {profile?.avatar_url ? (
-  <img src={profile.avatar_url} alt={profile.full_name} className="w-16 h-16 rounded-full object-cover shrink-0 border border-border" />
-) : (
-  <div className="w-16 h-16 rounded-full bg-secondary/20 flex items-center justify-center text-secondary text-2xl font-bold shrink-0">
-    {profile?.full_name?.charAt(0).toUpperCase() || "?"}
-  </div>
-)}
+              <img src={profile.avatar_url} alt={profile.full_name} className="w-16 h-16 rounded-full object-cover shrink-0 border border-border" />
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-secondary/20 flex items-center justify-center text-secondary text-2xl font-bold shrink-0">
+                {profile?.full_name?.charAt(0).toUpperCase() || "?"}
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <h2 className="text-xl font-bold text-foreground">{profile?.full_name || "Seller"}</h2>
@@ -434,8 +488,13 @@ const Dashboard = () => {
               {isUsed && (
                 <p className="text-xs text-amber-400 mb-2">📸 Upload clear real pictures of the actual item. Max 4 images for used items.</p>
               )}
-              <div onClick={() => fileInputRef.current?.click()} className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer hover:border-secondary transition-colors ${imageError ? "border-destructive" : "border-border"}`}>
-                {previewUrl ? (
+              <div onClick={() => !convertingImage && fileInputRef.current?.click()} className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer hover:border-secondary transition-colors ${imageError ? "border-destructive" : "border-border"}`}>
+                {convertingImage ? (
+                  <div className="flex flex-col items-center text-muted-foreground">
+                    <div className="w-6 h-6 border-2 border-secondary border-t-transparent rounded-full animate-spin mb-2" />
+                    <span>Processing image...</span>
+                  </div>
+                ) : previewUrl ? (
                   <img src={previewUrl} alt="Preview" className="w-32 h-32 object-cover rounded-lg mx-auto" />
                 ) : (
                   <div className="flex flex-col items-center text-muted-foreground">
@@ -443,7 +502,7 @@ const Dashboard = () => {
                     <span>Click to upload main image</span>
                   </div>
                 )}
-                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
+                <input ref={fileInputRef} type="file" accept="image/*,.heic,.heif" className="hidden" onChange={handleFileSelect} />
               </div>
               {imageError && <p className="text-sm text-destructive mt-1">{imageError}</p>}
             </div>
@@ -460,17 +519,21 @@ const Dashboard = () => {
                     </div>
                   ))}
                   {extraFiles.length < (isUsed ? 3 : 4) && (
-                    <div onClick={() => extraFilesInputRef.current?.click()} className="w-20 h-20 border-2 border-dashed border-border rounded-lg flex items-center justify-center cursor-pointer hover:border-secondary transition-colors">
-                      <Plus className="w-5 h-5 text-muted-foreground" />
+                    <div onClick={() => !convertingImage && extraFilesInputRef.current?.click()} className="w-20 h-20 border-2 border-dashed border-border rounded-lg flex items-center justify-center cursor-pointer hover:border-secondary transition-colors">
+                      {convertingImage ? (
+                        <div className="w-4 h-4 border-2 border-secondary border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Plus className="w-5 h-5 text-muted-foreground" />
+                      )}
                     </div>
                   )}
                 </div>
-                <input ref={extraFilesInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleExtraFilesSelect} />
+                <input ref={extraFilesInputRef} type="file" accept="image/*,.heic,.heif" multiple className="hidden" onChange={handleExtraFilesSelect} />
                 <p className="text-xs text-muted-foreground mt-1">{totalImages} of {isUsed ? "4 max" : "5 max"} images</p>
               </div>
             )}
 
-            <Button type="submit" variant="secondary" className="font-semibold" disabled={uploading || profile?.suspended || !isFormValid}>
+            <Button type="submit" variant="secondary" className="font-semibold" disabled={uploading || convertingImage || profile?.suspended || !isFormValid}>
               {uploading ? "Uploading..." : "Add Product"}
             </Button>
           </form>
