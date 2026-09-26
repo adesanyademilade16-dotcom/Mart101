@@ -533,9 +533,34 @@ const Dashboard = () => {
               </div>
             )}
 
-            <Button type="submit" variant="secondary" className="font-semibold" disabled={uploading || convertingImage || profile?.suspended || !isFormValid}>
-              {uploading ? "Uploading..." : "Add Product"}
-            </Button>
+            <Button
+  type="submit"
+  variant="secondary"
+  className="font-semibold"
+  disabled={uploading || convertingImage || profile?.suspended || !isFormValid}
+>
+  {uploading
+    ? "Uploading..."
+    : convertingImage
+      ? "Processing image..."
+      : profile?.suspended
+        ? "Account suspended"
+        : !selectedFile
+          ? "Add an image"
+          : !newProduct.name.trim()
+            ? "Enter product name"
+            : !newProduct.price
+              ? "Enter price"
+              : !newProduct.category
+                ? "Select category"
+                : !newProduct.condition
+                  ? "Select condition"
+                  : !newProduct.paymentType
+                    ? "Select payment type"
+                    : newProduct.description.trim().length < 10
+                      ? "Add a longer description"
+                      : "Add Product"}
+</Button>
           </form>
         </div>
 
