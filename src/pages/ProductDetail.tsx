@@ -310,7 +310,6 @@ const ProductDetail = () => {
               Always meet on campus when possible and be cautious with advance payments.
             </p>
           </div>
-          </div>
         </div>
       </main>
 
