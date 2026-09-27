@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { CATEGORIES } from "@/lib/categories";
 import { PRODUCT_CONDITIONS } from "@/lib/conditions";
 import ConfirmModal from "@/components/ConfirmModal";
+import LikeButton from "@/components/LikeButton";
 
 interface Product {
   id: string;
@@ -209,7 +210,12 @@ const Marketplace = () => {
                   {product.description && (
                     <p className="text-muted-foreground text-xs mt-1 line-clamp-2 leading-snug">{product.description}</p>
                   )}
-                  <p className="text-secondary font-bold text-base mt-1.5">₦{Number(product.price).toLocaleString()}</p>
+                  <div className="flex items-center justify-between mt-1.5">
+                    <p className="text-secondary font-bold text-base">₦{Number(product.price).toLocaleString()}</p>
+                    <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+                      <LikeButton productId={product.id} className="text-xs" />
+                    </div>
+                  </div>
                   <ConditionBadge condition={product.condition || "Brand New"} className="mt-1" />
                   <PaymentBadge paymentType={product.payment_type || "Pay on Delivery"} className="mt-1" />
                   <div className="flex items-center justify-between mt-1">
