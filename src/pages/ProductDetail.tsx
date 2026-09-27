@@ -225,7 +225,8 @@ const ProductDetail = () => {
           </div>
 
           {/* Info */}
-          <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="flex items-start justify-between gap-3">
               <h1 className="text-2xl md:text-3xl font-bold text-foreground">{product.name}</h1>
               <ShareButton
                 url={`https://mart101.vercel.app/product/${product.id}`}
@@ -308,6 +309,7 @@ const ProductDetail = () => {
               <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
               Always meet on campus when possible and be cautious with advance payments.
             </p>
+          </div>
           </div>
         </div>
       </main>
