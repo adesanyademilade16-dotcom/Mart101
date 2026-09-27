@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import ConfirmModal from "@/components/ConfirmModal";
 import MessageSellerButton from "@/components/MessageSellerButton";
 import ShareButton from "@/components/ShareButton";
+import LikeButton from "@/components/LikeButton";
 import {
   Carousel,
   CarouselContent,
@@ -224,16 +225,16 @@ const ProductDetail = () => {
           </div>
 
           {/* Info */}
-          <div className="flex flex-col">
-            <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start justify-between gap-3">
               <h1 className="text-2xl md:text-3xl font-bold text-foreground">{product.name}</h1>
               <ShareButton
-                url={`https://mart101.vercel.app/api/share/product/${product.id}`}
+                url={`https://mart101.vercel.app/product/${product.id}`}
                 title={product.name}
                 text={`Check out "${product.name}" on MART101 for ₦${Number(product.price).toLocaleString()}`}
                 className="shrink-0"
               />
             </div>
+            <LikeButton productId={product.id} className="mt-2" />
             <div className="flex items-center gap-2 mt-2">
               <p className="text-3xl font-bold text-secondary">
                 ₦{Number(product.price).toLocaleString()}
