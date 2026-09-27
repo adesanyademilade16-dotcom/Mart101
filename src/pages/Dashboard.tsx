@@ -238,12 +238,27 @@ const Dashboard = () => {
 
     setUploading(true);
 
-    // Upload main image
+    // Upload main image.
+    // We read the file into an ArrayBuffer before uploading (instead of
+    // passing the raw File/Blob straight to Supabase) because Safari/WebKit's
+    // fetch implementation is known to fail — with a bare "Load failed"
+    // error — on streaming File/Blob request bodies. An ArrayBuffer body
+    // sidesteps that entirely and works identically on every browser.
     let imageUrl: string | null = null;
     if (selectedFile) {
       const fileExt = selectedFile.name.split(".").pop();
       const filePath = `${user.id}/${Date.now()}.${fileExt}`;
-      const { error: uploadError } = await supabase.storage.from("product-images").upload(filePath, selectedFile);
+      let fileBuffer: ArrayBuffer;
+      try {
+        fileBuffer = await selectedFile.arrayBuffer();
+      } catch {
+        toast({ title: "Upload failed", description: "Couldn't read the image file. Please try again.", variant: "destructive" });
+        setUploading(false);
+        return;
+      }
+      const { error: uploadError } = await supabase.storage
+        .from("product-images")
+        .upload(filePath, fileBuffer, { contentType: selectedFile.type });
       if (uploadError) {
         toast({ title: "Upload failed", description: sanitizeError(uploadError), variant: "destructive" });
         setUploading(false);
@@ -253,15 +268,22 @@ const Dashboard = () => {
       imageUrl = urlData.publicUrl;
     }
 
-    // Upload extra images
+    // Upload extra images — same ArrayBuffer approach, for the same reason.
     const extraUrls: string[] = [];
     for (const file of extraFiles) {
       const fileExt = file.name.split(".").pop();
       const filePath = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
-      const { error: uploadError } = await supabase.storage.from("product-images").upload(filePath, file);
-      if (uploadError) continue;
-      const { data: urlData } = supabase.storage.from("product-images").getPublicUrl(filePath);
-      extraUrls.push(urlData.publicUrl);
+      try {
+        const buffer = await file.arrayBuffer();
+        const { error: uploadError } = await supabase.storage
+          .from("product-images")
+          .upload(filePath, buffer, { contentType: file.type });
+        if (uploadError) continue;
+        const { data: urlData } = supabase.storage.from("product-images").getPublicUrl(filePath);
+        extraUrls.push(urlData.publicUrl);
+      } catch {
+        continue;
+      }
     }
 
     const { data, error } = await supabase
@@ -534,33 +556,33 @@ const Dashboard = () => {
             )}
 
             <Button
-  type="submit"
-  variant="secondary"
-  className="font-semibold"
-  disabled={uploading || convertingImage || profile?.suspended || !isFormValid}
->
-  {uploading
-    ? "Uploading..."
-    : convertingImage
-      ? "Processing image..."
-      : profile?.suspended
-        ? "Account suspended"
-        : !selectedFile
-          ? "Add an image"
-          : !newProduct.name.trim()
-            ? "Enter product name"
-            : !newProduct.price
-              ? "Enter price"
-              : !newProduct.category
-                ? "Select category"
-                : !newProduct.condition
-                  ? "Select condition"
-                  : !newProduct.paymentType
-                    ? "Select payment type"
-                    : newProduct.description.trim().length < 10
-                      ? "Add a longer description"
-                      : "Add Product"}
-</Button>
+              type="submit"
+              variant="secondary"
+              className="font-semibold"
+              disabled={uploading || convertingImage || profile?.suspended || !isFormValid}
+            >
+              {uploading
+                ? "Uploading..."
+                : convertingImage
+                  ? "Processing image..."
+                  : profile?.suspended
+                    ? "Account suspended"
+                    : !selectedFile
+                      ? "Add an image"
+                      : !newProduct.name.trim()
+                        ? "Enter product name"
+                        : !newProduct.price
+                          ? "Enter price"
+                          : !newProduct.category
+                            ? "Select category"
+                            : !newProduct.condition
+                              ? "Select condition"
+                              : !newProduct.paymentType
+                                ? "Select payment type"
+                                : newProduct.description.trim().length < 10
+                                  ? "Add a longer description"
+                                  : "Add Product"}
+            </Button>
           </form>
         </div>
 
