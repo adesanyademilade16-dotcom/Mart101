@@ -23,6 +23,7 @@ import SellerProfile from "./pages/SellerProfile";
 import SafeCampusTrading from "./pages/SafeCampusTrading";
 import Messages from "./pages/Messages";
 import Conversation from "./pages/Conversation";
+import LikedItems from "./pages/LikedItems";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -54,6 +55,7 @@ const App = () => (
             <Route path="/blog/safe-campus-trading-oou" element={<SafeCampusTrading />} />
             <Route path="/messages" element={<Messages />} />
             <Route path="/messages/:id" element={<Conversation />} />
+            <Route path="/liked" element={<LikedItems />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </NotificationsProvider>
