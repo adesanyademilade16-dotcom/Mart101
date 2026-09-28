@@ -15,9 +15,9 @@ const NAV_LINKS = [
   { to: "/", label: "Home", icon: Home },
   { to: "/marketplace", label: "Browse Marketplace", icon: Store },
   { to: "/messages", label: "Messages", icon: MessageCircle },
-  { to: "/liked", label: "Liked Items", icon: Heart },
   { to: "/dashboard?tab=sell", label: "Sell a Product", icon: PlusCircle },
   { to: "/dashboard", label: "My Dashboard", icon: LayoutDashboard },
+  { to: "/liked", label: "Liked Items", icon: Heart },
 ];
 
 const ADMIN_LINK = { to: "/admin", label: "Admin Dashboard", icon: ShieldCheck };
