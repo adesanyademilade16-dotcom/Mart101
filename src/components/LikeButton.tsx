@@ -6,16 +6,23 @@ import { useToast } from "@/hooks/use-toast";
 interface LikeButtonProps {
   productId: string;
   className?: string;
+  // When a parent page already knows the like count / liked state for many
+  // products at once (batched), it passes them here and sets skipFetch so
+  // this component doesn't run its own network request per card.
+  initialLiked?: boolean;
+  initialCount?: number;
+  skipFetch?: boolean;
 }
 
-const LikeButton = ({ productId, className }: LikeButtonProps) => {
+const LikeButton = ({ productId, className, initialLiked, initialCount, skipFetch }: LikeButtonProps) => {
   const { toast } = useToast();
-  const [liked, setLiked] = useState(false);
-  const [count, setCount] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [liked, setLiked] = useState(initialLiked ?? false);
+  const [count, setCount] = useState(initialCount ?? 0);
+  const [loading, setLoading] = useState(!skipFetch);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    if (skipFetch) return;
     const load = async () => {
       const { data: { session } } = await supabase.auth.getSession();
 
@@ -37,7 +44,7 @@ const LikeButton = ({ productId, className }: LikeButtonProps) => {
       setLoading(false);
     };
     load();
-  }, [productId]);
+  }, [productId, skipFetch]);
 
   const handleToggle = async () => {
     if (busy) return;
