@@ -27,6 +27,7 @@ interface LikedProduct {
 const LikedItems = () => {
   const navigate = useNavigate();
   const [products, setProducts] = useState<LikedProduct[]>([]);
+  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
   useSEO({
@@ -85,6 +86,16 @@ const LikedItems = () => {
 
       setProducts(ordered);
       setLoading(false);
+
+      // Batch-fetch counts for every liked product in one query, instead of
+      // one query per card.
+      const { data: countsData } = await supabase
+        .rpc("get_product_like_counts", { product_ids: ids });
+      const countMap: Record<string, number> = {};
+      (countsData || []).forEach((row: any) => {
+        countMap[row.product_id] = Number(row.like_count);
+      });
+      setLikeCounts(countMap);
     };
     load();
   }, [navigate]);
@@ -142,7 +153,13 @@ const LikedItems = () => {
                   <div className="flex items-center justify-between mt-1.5">
                     <p className="text-secondary font-bold text-base">₦{Number(product.price).toLocaleString()}</p>
                     <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
-                      <LikeButton productId={product.id} className="text-xs" />
+                      <LikeButton
+                        productId={product.id}
+                        className="text-xs"
+                        skipFetch
+                        initialLiked
+                        initialCount={likeCounts[product.id] || 0}
+                      />
                     </div>
                   </div>
                   <ConditionBadge condition={product.condition || "Brand New"} className="mt-1" />
