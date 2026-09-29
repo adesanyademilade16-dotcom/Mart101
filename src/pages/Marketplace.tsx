@@ -43,6 +43,8 @@ const Marketplace = () => {
   const [conditionFilter, setConditionFilter] = useState("All");
   const { toast } = useToast();
   const [reportTarget, setReportTarget] = useState<{ id: string; name: string } | null>(null);
+  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
+  const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -70,6 +72,29 @@ const Marketplace = () => {
 
       setProducts(merged as any);
       setLoading(false);
+
+      // Batch-fetch like data for every product on the page in just two
+      // queries total, instead of each product's heart running its own
+      // fetch — keeps this scalable as listings grow into the hundreds.
+      const productIds = productsData.map((p) => p.id);
+
+      const { data: countsData } = await supabase
+        .rpc("get_product_like_counts", { product_ids: productIds });
+      const countMap: Record<string, number> = {};
+      (countsData || []).forEach((row: any) => {
+        countMap[row.product_id] = Number(row.like_count);
+      });
+      setLikeCounts(countMap);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const { data: userLikes } = await supabase
+          .from("product_likes")
+          .select("product_id")
+          .eq("user_id", session.user.id)
+          .in("product_id", productIds);
+        setLikedIds(new Set((userLikes || []).map((l: any) => l.product_id)));
+      }
     };
     fetchProducts();
   }, []);
@@ -126,7 +151,7 @@ const Marketplace = () => {
       <section className="bg-navy pb-6 pt-4">
         <h1 className="sr-only">OOU Student Marketplace</h1>
         <p className="text-primary-foreground/70 text-sm text-center max-w-lg mx-auto px-4 pb-3">
-          Browse items listed by students. Buy and sell within campus easily.
+          Browse items listed by students of Olabisi Onabanjo University (OOU). Buy and sell within campus easily.
         </p>
         <div className="max-w-2xl mx-auto px-4 space-y-3">
           <div className="relative">
@@ -213,7 +238,13 @@ const Marketplace = () => {
                   <div className="flex items-center justify-between mt-1.5">
                     <p className="text-secondary font-bold text-base">₦{Number(product.price).toLocaleString()}</p>
                     <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
-                      <LikeButton productId={product.id} className="text-xs" />
+                      <LikeButton
+                        productId={product.id}
+                        className="text-xs"
+                        skipFetch
+                        initialCount={likeCounts[product.id] || 0}
+                        initialLiked={likedIds.has(product.id)}
+                      />
                     </div>
                   </div>
                   <ConditionBadge condition={product.condition || "Brand New"} className="mt-1" />
