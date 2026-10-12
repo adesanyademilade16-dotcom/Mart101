@@ -8,15 +8,39 @@ self.addEventListener("fetch", (event) => {
 });
 
 self.addEventListener("push", (event) => {
-  if (!event.data) return;
-  const data = event.data.json();
   event.waitUntil(
-    self.registration.showNotification(data.title || "MART101", {
-      body: data.body || "",
-      icon: "/icon-192.png",
-      badge: "/icon-192.png",
-      data: { url: data.url || "/messages" },
-    })
+    (async () => {
+      try {
+        if (!event.data) {
+          await self.registration.showNotification("MART101 (debug)", {
+            body: "Push event fired but had no data attached.",
+          });
+          return;
+        }
+
+        let data;
+        try {
+          data = event.data.json();
+        } catch (jsonErr) {
+          const raw = event.data.text();
+          await self.registration.showNotification("MART101 (debug: bad JSON)", {
+            body: raw.slice(0, 180),
+          });
+          return;
+        }
+
+        await self.registration.showNotification(data.title || "MART101", {
+          body: data.body || "",
+          icon: "/icon-192.png",
+          badge: "/icon-192.png",
+          data: { url: data.url || "/messages" },
+        });
+      } catch (err) {
+        await self.registration.showNotification("MART101 (debug: error)", {
+          body: String((err && err.message) || err),
+        });
+      }
+    })()
   );
 });
 
