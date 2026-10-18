@@ -1,7 +1,7 @@
 import { useSEO } from "@/hooks/useSEO";
 import { useEffect, useState, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, MessageCircle, ShoppingBag, Flag, AlertTriangle } from "lucide-react";
+import { ArrowLeft, MessageCircle, ShoppingBag, Flag, AlertTriangle, ShieldCheck } from "lucide-react";
 import LazyImage from "@/components/LazyImage";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import ConditionBadge from "@/components/ConditionBadge";
@@ -54,6 +54,7 @@ const ProductDetail = () => {
   const [showReport, setShowReport] = useState(false);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [payingNow, setPayingNow] = useState(false);
   const { toast } = useToast();
 
   const allImages = useMemo(() => {
@@ -132,6 +133,39 @@ const ProductDetail = () => {
       `Hello, I am interested in buying your ${product.name} listed on MART101.`
     );
     window.open(`https://wa.me/${phone}?text=${message}`, "_blank");
+  };
+
+  const handlePayNow = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      setShowAuthPrompt(true);
+      return;
+    }
+    if (session.user.id === product?.seller_id) {
+      toast({ title: "You can't buy your own listing", variant: "destructive" });
+      return;
+    }
+    setPayingNow(true);
+    try {
+      const res = await fetch("/api/payments/initialize", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ product_id: product?.id }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.authorization_url) {
+        toast({ title: "Could not start payment", description: data.error || "Please try again.", variant: "destructive" });
+        setPayingNow(false);
+        return;
+      }
+      window.location.href = data.authorization_url;
+    } catch {
+      toast({ title: "Network error", description: "Please check your connection and try again.", variant: "destructive" });
+      setPayingNow(false);
+    }
   };
 
   if (loading) {
@@ -281,7 +315,16 @@ const ProductDetail = () => {
               <PaymentTrustMessage paymentType={product.payment_type || "Pay on Delivery"} />
             </div>
 
-            <div className="grid grid-cols-2 gap-3 mt-6">
+            <Button
+              onClick={handlePayNow}
+              disabled={payingNow}
+              className="w-full font-semibold text-base h-14 mt-6 bg-secondary text-secondary-foreground hover:bg-secondary/90"
+            >
+              <ShieldCheck className="w-5 h-5 mr-2" />
+              {payingNow ? "Starting payment..." : "Pay Now (Buyer Protected)"}
+            </Button>
+
+            <div className="grid grid-cols-2 gap-3 mt-3">
               <MessageSellerButton
                 sellerId={product.seller_id}
                 productId={product.id}
