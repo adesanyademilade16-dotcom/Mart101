@@ -1,5 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 
+export const config = {
+  api: { bodyParser: false },
+};
+
 const SUPABASE_URL = "https://ututplfwuwwkbcrrjydw.supabase.co";
 const SITE_URL = "https://mart101.vercel.app";
 const PLATFORM_COMMISSION_RATE = 0; // 0% for launch — change this single number later
@@ -11,6 +15,15 @@ function calculatePaystackFee(amount: number) {
   return Math.round(fee);
 }
 
+function getRawBody(req: any): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let data = "";
+    req.on("data", (chunk: any) => (data += chunk));
+    req.on("end", () => resolve(data));
+    req.on("error", reject);
+  });
+}
+
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
@@ -18,12 +31,21 @@ export default async function handler(req: any, res: any) {
   const token = authHeader.replace("Bearer ", "");
   if (!token) return res.status(401).json({ error: "Not logged in" });
 
+  let body: any = {};
+  try {
+    const rawBody = await getRawBody(req);
+    body = rawBody ? JSON.parse(rawBody) : {};
+  } catch {
+    return res.status(400).json({ error: "Invalid request body" });
+  }
+  const { product_id } = body;
+  if (!product_id) return res.status(400).json({ error: "Missing product_id" });
+
   const supabase = createClient(SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
   const { data: { user }, error: authError } = await supabase.auth.getUser(token);
   if (authError || !user) return res.status(401).json({ error: "Invalid session" });
 
-  const { product_id } = req.body;
   const { data: product, error: productError } = await supabase
     .from("products")
     .select("id, name, price, seller_id")
@@ -67,7 +89,7 @@ export default async function handler(req: any, res: any) {
     },
     body: JSON.stringify({
       email: user.email,
-      amount: Math.round(totalPaid * 100), // Paystack expects kobo
+      amount: Math.round(totalPaid * 100),
       reference: order.id,
       callback_url: `${SITE_URL}/product/${product.id}`,
       metadata: { order_id: order.id, product_name: product.name },
@@ -82,4 +104,4 @@ export default async function handler(req: any, res: any) {
   await supabase.from("orders").update({ paystack_reference: order.id }).eq("id", order.id);
 
   return res.status(200).json({ authorization_url: paystackData.data.authorization_url });
-         }
+}
