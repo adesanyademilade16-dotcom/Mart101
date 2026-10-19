@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { ShoppingBag, Plus, Trash2, Upload, AlertTriangle, CalendarDays, Package } from "lucide-react";
+import { ShoppingBag, Plus, Trash2, Upload, AlertTriangle, CalendarDays, Package, ShieldCheck } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import ConfirmModal from "@/components/ConfirmModal";
 import ConditionBadge from "@/components/ConditionBadge";
