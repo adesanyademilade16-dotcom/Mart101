@@ -400,6 +400,30 @@ const Dashboard = () => {
           </div>
         </div>
 
+                {/* Mart101 Pay status */}
+        <div className="glass-card p-5 mb-6 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3">
+            <ShieldCheck className="w-6 h-6 text-secondary shrink-0" />
+            <div>
+              <p className="font-semibold text-foreground">Mart101 Pay</p>
+              <p className="text-sm text-muted-foreground">
+                {profile?.payment_status === "approved"
+                  ? "Enabled — buyers can pay for your eligible listings securely."
+                  : profile?.payment_status === "pending"
+                  ? "Your request is under review."
+                  : profile?.payment_status === "rejected"
+                  ? "Last request wasn't approved — update your details to try again."
+                  : "Let buyers pay securely through Mart101 instead of only WhatsApp."}
+              </p>
+            </div>
+          </div>
+          <Link to="/enable-payments">
+            <Button variant={profile?.payment_status === "approved" ? "outline" : "secondary"} size="sm">
+              {profile?.payment_status === "approved" ? "Manage" : "Upgrade"}
+            </Button>
+          </Link>
+        </div>
+
         {profile?.suspended && (
           <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-4 mb-6 flex items-center gap-3">
             <AlertTriangle className="w-5 h-5 text-destructive shrink-0" />
