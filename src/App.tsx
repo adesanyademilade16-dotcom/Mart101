@@ -11,6 +11,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import CompleteProfile from "./pages/CompleteProfile";
 import EditProfile from "./pages/EditProfile";
+import EnablePayments from "./pages/EnablePayments";
 import ProductDetail from "./pages/ProductDetail";
 import About from "./pages/About";
 import Terms from "./pages/Terms";
@@ -43,6 +44,7 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/complete-profile" element={<CompleteProfile />} />
             <Route path="/edit-profile" element={<EditProfile />} />
+            <Route path="/enable-payments" element={<EnablePayments />} />
             <Route path="/product/:id" element={<ProductDetail />} />
             <Route path="/about" element={<About />} />
             <Route path="/terms" element={<Terms />} />
