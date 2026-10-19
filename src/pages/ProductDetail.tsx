@@ -315,15 +315,17 @@ const ProductDetail = () => {
               <PaymentTrustMessage paymentType={product.payment_type || "Pay on Delivery"} />
             </div>
 
-            <Button
-              onClick={handlePayNow}
-              disabled={payingNow}
-              className="w-full font-semibold text-base h-14 mt-6 bg-secondary text-secondary-foreground hover:bg-secondary/90"
-            >
-              <ShieldCheck className="w-5 h-5 mr-2" />
-              {payingNow ? "Starting payment..." : "Pay Now (Buyer Protected)"}
-            </Button>
-
+              {product.profiles?.payment_status === "approved" && product.payment_type !== "Pre-order" && (
+              <Button
+                onClick={handlePayNow}
+                disabled={payingNow}
+                className="w-full font-semibold text-base h-14 mt-6 bg-secondary text-secondary-foreground hover:bg-secondary/90"
+              >
+                <ShieldCheck className="w-5 h-5 mr-2" />
+                {payingNow ? "Starting payment..." : "Pay Now (Buyer Protected)"}
+              </Button>
+            )}
+            
             <div className="grid grid-cols-2 gap-3 mt-3">
               <MessageSellerButton
                 sellerId={product.seller_id}
