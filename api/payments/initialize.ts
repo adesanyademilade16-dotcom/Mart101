@@ -1,27 +1,14 @@
 import { createClient } from "@supabase/supabase-js";
 
-export const config = {
-  api: { bodyParser: false },
-};
-
 const SUPABASE_URL = "https://ututplfwuwwkbcrrjydw.supabase.co";
 const SITE_URL = "https://mart101.vercel.app";
-const PLATFORM_COMMISSION_RATE = 0; // 0% for launch — change this single number later
+const PLATFORM_COMMISSION_RATE = 0;
 
 function calculatePaystackFee(amount: number) {
   let fee = amount * 0.015;
   if (amount >= 2500) fee += 100;
   if (fee > 2000) fee = 2000;
   return Math.round(fee);
-}
-
-function getRawBody(req: any): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let data = "";
-    req.on("data", (chunk: any) => (data += chunk));
-    req.on("end", () => resolve(data));
-    req.on("error", reject);
-  });
 }
 
 export default async function handler(req: any, res: any) {
@@ -31,14 +18,17 @@ export default async function handler(req: any, res: any) {
   const token = authHeader.replace("Bearer ", "");
   if (!token) return res.status(401).json({ error: "Not logged in" });
 
-  let body: any = {};
-  try {
-    const rawBody = await getRawBody(req);
-    body = rawBody ? JSON.parse(rawBody) : {};
-  } catch {
-    return res.status(400).json({ error: "Invalid request body" });
+  let body = req.body;
+  if (typeof body === "string") {
+    try {
+      body = JSON.parse(body);
+    } catch {
+      return res.status(400).json({ error: "Invalid JSON body" });
+    }
   }
-  const { product_id } = body;
+  const product_id = body?.product_id;
+  console.log("initialize.ts received product_id:", product_id, "raw body type:", typeof req.body);
+
   if (!product_id) return res.status(400).json({ error: "Missing product_id" });
 
   const supabase = createClient(SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -52,10 +42,13 @@ export default async function handler(req: any, res: any) {
     .eq("id", product_id)
     .maybeSingle();
 
-  if (productError || !product) return res.status(404).json({ error: "Product not found" });
+  if (productError || !product) {
+    console.log("Product lookup failed for id:", product_id, "error:", productError);
+    return res.status(404).json({ error: "Product not found" });
+  }
   if (product.seller_id === user.id) return res.status(400).json({ error: "You can't buy your own listing" });
 
-  const deliveryFee = 0; // placeholder until seller-set delivery fee UI exists
+  const deliveryFee = 0;
   const subtotal = Number(product.price) + deliveryFee;
   const paystackFee = calculatePaystackFee(subtotal);
   const totalPaid = subtotal + paystackFee;
