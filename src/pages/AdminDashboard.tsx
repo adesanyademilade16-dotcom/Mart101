@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Trash2, Ban, Flag, ShoppingBag, BadgeCheck, FlagOff,
-  ShieldCheck, ShieldOff, Users, FileText, Activity, AlertTriangle,
+  ShieldCheck, ShieldOff, Users, FileText, Activity, AlertTriangle, Wallet,
 } from "lucide-react";
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip,
@@ -79,8 +79,11 @@ type ConfirmAction =
   | { type: "unflag"; productId: string; productName: string }
   | { type: "dismiss_report"; reportId: string }
   | { type: "action_report"; reportId: string; productId: string; productName: string; sellerId: string; sellerName: string }
-  | { type: "suspend_from_report"; reportId: string; sellerId: string; sellerName: string };
-
+  | { type: "suspend_from_report"; reportId: string; sellerId: string; sellerName: string }
+  | { type: "approve_verification"; sellerId: string; sellerName: string }
+  | { type: "reject_verification"; sellerId: string; sellerName: string }
+  | { type: "approve_payment"; sellerId: string; sellerName: string }
+  | { type: "reject_payment"; sellerId: string; sellerName: string };
 /* ───────── Constants ───────── */
 
 const CONDITION_COLORS: Record<string, string> = {
