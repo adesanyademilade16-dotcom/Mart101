@@ -101,9 +101,10 @@ const ACTION_LABELS: Record<string, string> = {
   unsuspend: "Unsuspended seller",
   delete_product: "Deleted product",
   dismiss_report: "Dismissed report",
-  action_report: "Actioned report",
-  unflag: "Unflagged product",
-};
+  approve_verification: "Approved verification",
+  reject_verification: "Rejected verification",
+  approve_payment: "Approved Mart101 Pay",
+  reject_payment: "Rejected Mart101 Pay",
 
 /* ───────── Component ───────── */
 
