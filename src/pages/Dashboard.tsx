@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { ShoppingBag, Plus, Trash2, Upload, AlertTriangle, CalendarDays, Package, ShieldCheck } from "lucide-react";
-import AppHeader from "@/components/AppHeader";
+import { ShoppingBag, Plus, Trash2, Upload, AlertTriangle, CalendarDays, Package, ShieldCheck, BadgeCheck } from "lucide-react";import AppHeader from "@/components/AppHeader";
 import ConfirmModal from "@/components/ConfirmModal";
 import ConditionBadge from "@/components/ConditionBadge";
 import VerifiedBadge from "@/components/VerifiedBadge";
@@ -400,7 +399,31 @@ const Dashboard = () => {
           </div>
         </div>
 
-                {/* Mart101 Pay status */}
+                        {/* Verification status */}
+        <div className="glass-card p-5 mb-6 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3">
+            <BadgeCheck className="w-6 h-6 text-secondary shrink-0" />
+            <div>
+              <p className="font-semibold text-foreground">Account Verification</p>
+              <p className="text-sm text-muted-foreground">
+                {profile?.verified
+                  ? "You're verified."
+                  : profile?.verification_status === "pending"
+                  ? "Your request is under review."
+                  : profile?.verification_status === "rejected"
+                  ? "Last request wasn't approved — resubmit below."
+                  : "Required before Mart101 Pay can be enabled."}
+              </p>
+            </div>
+          </div>
+          <Link to="/verify-account">
+            <Button variant={profile?.verified ? "outline" : "secondary"} size="sm">
+              {profile?.verified ? "View" : "Verify"}
+            </Button>
+          </Link>
+        </div>
+
+        {/* Mart101 Pay status */}
         <div className="glass-card p-5 mb-6 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
             <ShieldCheck className="w-6 h-6 text-secondary shrink-0" />
