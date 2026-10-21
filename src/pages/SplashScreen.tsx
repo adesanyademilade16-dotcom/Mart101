@@ -8,7 +8,6 @@ import BrandLogo from "@/components/BrandLogo";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import AppHeader from "@/components/AppHeader";
 import AppFooter from "@/components/AppFooter";
-import InstallAppButton from "@/components/InstallAppButton";
 
 interface RecentProduct {
   id: string;
@@ -102,9 +101,6 @@ const SplashScreen = () => {
           <button onClick={() => navigate("/marketplace")} className="bg-secondary text-secondary-foreground font-semibold px-8 py-3 rounded-full hover:bg-secondary/90 transition-colors text-lg">
             Explore Marketplace
           </button>
-          <div className="flex justify-center">
-            <InstallAppButton />
-          </div>
         </section>
 
         {/* Trust Signals */}
