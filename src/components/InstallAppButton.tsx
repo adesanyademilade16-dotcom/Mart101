@@ -22,10 +22,8 @@ const InstallAppButton = () => {
     return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
-  // Already installed? Don't show anything.
   if (isInStandaloneMode() || dismissed) return null;
 
-  // No native prompt available and not iOS = nothing we can do (unsupported browser)
   if (!deferredPrompt && !isIos()) return null;
 
   const handleInstall = async () => {
@@ -43,10 +41,12 @@ const InstallAppButton = () => {
     <>
       <Button
         onClick={handleInstall}
-        className="gap-2 bg-gold text-navy hover:bg-gold/90 font-semibold px-6 py-3 rounded-full text-base"
+        size="sm"
+        variant="outline"
+        className="gap-1.5 border-gold/50 text-gold hover:bg-gold/10 font-semibold"
       >
-        <Download className="h-5 w-5" />
-        Download App
+        <Download className="h-4 w-4" />
+        <span className="hidden sm:inline">Download App</span>
       </Button>
 
       {showIosInstructions && (
