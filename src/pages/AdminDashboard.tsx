@@ -47,6 +47,13 @@ interface SellerRow {
   suspended: boolean;
   created_at: string;
   report_count: number;
+  verification_status?: string;
+  matric_number?: string | null;
+  id_photo_url?: string | null;
+  payment_status?: string;
+  bank_name?: string | null;
+  account_number?: string | null;
+  account_name?: string | null;
 }
 
 interface ReportRow {
@@ -84,6 +91,7 @@ type ConfirmAction =
   | { type: "reject_verification"; sellerId: string; sellerName: string }
   | { type: "approve_payment"; sellerId: string; sellerName: string }
   | { type: "reject_payment"; sellerId: string; sellerName: string };
+
 /* ───────── Constants ───────── */
 
 const CONDITION_COLORS: Record<string, string> = {
@@ -105,6 +113,9 @@ const ACTION_LABELS: Record<string, string> = {
   reject_verification: "Rejected verification",
   approve_payment: "Approved Mart101 Pay",
   reject_payment: "Rejected Mart101 Pay",
+  action_report: "Actioned report",
+  unflag: "Unflagged product",
+};
 
 /* ───────── Component ───────── */
 
@@ -213,6 +224,13 @@ const AdminDashboard = () => {
           suspended: p.suspended,
           created_at: p.created_at,
           report_count: reportCountMap[p.user_id] || 0,
+          verification_status: p.verification_status,
+          matric_number: p.matric_number,
+          id_photo_url: p.id_photo_url,
+          payment_status: p.payment_status,
+          bank_name: p.bank_name,
+          account_number: p.account_number,
+          account_name: p.account_name,
         }))
       );
 
@@ -329,6 +347,54 @@ const AdminDashboard = () => {
         }
         break;
       }
+      case "approve_verification": {
+        const { error } = await supabase.from("profiles").update({ verified: true, verification_status: "approved" }).eq("user_id", confirm.sellerId);
+        if (!error) {
+          setSellers((prev) => prev.map((s) => s.user_id === confirm.sellerId ? { ...s, verified: true, verification_status: "approved" } : s));
+          await logAction("approve_verification", `Approved verification for "${confirm.sellerName}"`, confirm.sellerId);
+          toast({ title: "Seller verified ✓" });
+        } else {
+          toast({ title: "Error", description: sanitizeError(error), variant: "destructive" });
+          console.error("approve_verification error:", error);
+        }
+        break;
+      }
+      case "reject_verification": {
+        const { error } = await supabase.from("profiles").update({ verification_status: "rejected" }).eq("user_id", confirm.sellerId);
+        if (!error) {
+          setSellers((prev) => prev.map((s) => s.user_id === confirm.sellerId ? { ...s, verification_status: "rejected" } : s));
+          await logAction("reject_verification", `Rejected verification for "${confirm.sellerName}"`, confirm.sellerId);
+          toast({ title: "Verification rejected" });
+        } else {
+          toast({ title: "Error", description: sanitizeError(error), variant: "destructive" });
+          console.error("reject_verification error:", error);
+        }
+        break;
+      }
+      case "approve_payment": {
+        const { error } = await supabase.from("profiles").update({ payment_status: "approved" }).eq("user_id", confirm.sellerId);
+        if (!error) {
+          setSellers((prev) => prev.map((s) => s.user_id === confirm.sellerId ? { ...s, payment_status: "approved" } : s));
+          await logAction("approve_payment", `Approved Mart101 Pay for "${confirm.sellerName}"`, confirm.sellerId);
+          toast({ title: "Mart101 Pay approved ✓" });
+        } else {
+          toast({ title: "Error", description: sanitizeError(error), variant: "destructive" });
+          console.error("approve_payment error:", error);
+        }
+        break;
+      }
+      case "reject_payment": {
+        const { error } = await supabase.from("profiles").update({ payment_status: "rejected" }).eq("user_id", confirm.sellerId);
+        if (!error) {
+          setSellers((prev) => prev.map((s) => s.user_id === confirm.sellerId ? { ...s, payment_status: "rejected" } : s));
+          await logAction("reject_payment", `Rejected Mart101 Pay for "${confirm.sellerName}"`, confirm.sellerId);
+          toast({ title: "Mart101 Pay rejected" });
+        } else {
+          toast({ title: "Error", description: sanitizeError(error), variant: "destructive" });
+          console.error("reject_payment error:", error);
+        }
+        break;
+      }
       case "suspend_from_report": {
         const { error } = await supabase.from("profiles").update({ suspended: true }).eq("user_id", confirm.sellerId);
         if (!error) {
@@ -373,6 +439,14 @@ const AdminDashboard = () => {
         return { title: "Delete Listing", description: `Delete "${confirm.productName}" and mark report as actioned?`, confirmLabel: "Delete Listing", variant: "destructive" as const };
       case "suspend_from_report":
         return { title: "Suspend Seller", description: `Suspend "${confirm.sellerName}" and mark report as actioned?`, confirmLabel: "Suspend", variant: "destructive" as const };
+      case "approve_verification":
+        return { title: "Approve Verification", description: `Mark "${confirm.sellerName}" as verified? This will also give them the verified badge.`, confirmLabel: "Approve", variant: "default" as const };
+      case "reject_verification":
+        return { title: "Reject Verification", description: `Reject the verification request from "${confirm.sellerName}"? They can resubmit later.`, confirmLabel: "Reject", variant: "destructive" as const };
+      case "approve_payment":
+        return { title: "Approve Mart101 Pay", description: `Enable Mart101 Pay for "${confirm.sellerName}"? Buyers will be able to pay for their eligible listings.`, confirmLabel: "Approve", variant: "default" as const };
+      case "reject_payment":
+        return { title: "Reject Mart101 Pay", description: `Reject the Mart101 Pay request from "${confirm.sellerName}"? They can resubmit later.`, confirmLabel: "Reject", variant: "destructive" as const };
     }
   };
 
@@ -400,6 +474,7 @@ const AdminDashboard = () => {
     { name: "Listings", count: products.length },
   ];
   const pendingReports = reports.filter((r) => r.status === "pending");
+  const pendingRequests = sellers.filter((s) => s.verification_status === "pending" || s.payment_status === "pending");
 
   return (
     <div className="min-h-screen bg-background">
@@ -409,12 +484,20 @@ const AdminDashboard = () => {
         <p className="text-muted-foreground mb-6">Admin Control Panel</p>
 
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 h-auto">
+          <TabsList className="grid w-full grid-cols-5 h-auto">
             <TabsTrigger value="overview" className="flex items-center gap-1.5 text-xs sm:text-sm py-2">
               <ShoppingBag className="w-4 h-4" /> Overview
             </TabsTrigger>
             <TabsTrigger value="sellers" className="flex items-center gap-1.5 text-xs sm:text-sm py-2">
               <Users className="w-4 h-4" /> Sellers
+            </TabsTrigger>
+            <TabsTrigger value="requests" className="flex items-center gap-1.5 text-xs sm:text-sm py-2 relative">
+              <Wallet className="w-4 h-4" /> Requests
+              {pendingRequests.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full w-5 h-5 text-[10px] flex items-center justify-center font-bold">
+                  {pendingRequests.length}
+                </span>
+              )}
             </TabsTrigger>
             <TabsTrigger value="reports" className="flex items-center gap-1.5 text-xs sm:text-sm py-2 relative">
               <FileText className="w-4 h-4" /> Reports
@@ -612,6 +695,80 @@ const AdminDashboard = () => {
                 </table>
               </div>
             )}
+          </TabsContent>
+
+          {/* ═══ REQUESTS TAB ═══ */}
+          <TabsContent value="requests" className="space-y-6">
+            <div>
+              <h2 className="text-xl font-bold text-foreground mb-3">Verification Requests</h2>
+              {sellers.filter((s) => s.verification_status === "pending").length === 0 ? (
+                <p className="text-muted-foreground text-sm">No pending verification requests.</p>
+              ) : (
+                <div className="space-y-3">
+                  {sellers.filter((s) => s.verification_status === "pending").map((seller) => (
+                    <div key={seller.user_id} className="border border-border rounded-xl p-4 flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {seller.id_photo_url && (
+                          <a href={seller.id_photo_url} target="_blank" rel="noopener noreferrer">
+                            <img src={seller.id_photo_url} alt="Student ID" className="w-16 h-16 rounded-lg object-cover border border-border" />
+                          </a>
+                        )}
+                        <div>
+                          <p className="font-semibold text-foreground">{seller.full_name}</p>
+                          <p className="text-sm text-muted-foreground">Matric: {seller.matric_number || "—"}</p>
+                          <p className="text-xs text-muted-foreground">{seller.department}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 self-end sm:self-center">
+                        <Button size="sm" variant="outline" className="text-destructive" onClick={() => setConfirm({ type: "reject_verification", sellerId: seller.user_id, sellerName: seller.full_name })}>
+                          Reject
+                        </Button>
+                        <Button size="sm" onClick={() => setConfirm({ type: "approve_verification", sellerId: seller.user_id, sellerName: seller.full_name })}>
+                          Approve
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <h2 className="text-xl font-bold text-foreground mb-3">Mart101 Pay Requests</h2>
+              {sellers.filter((s) => s.payment_status === "pending").length === 0 ? (
+                <p className="text-muted-foreground text-sm">No pending payment requests.</p>
+              ) : (
+                <div className="space-y-3">
+                  {sellers.filter((s) => s.payment_status === "pending").map((seller) => (
+                    <div key={seller.user_id} className="border border-border rounded-xl p-4 flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
+                      <div>
+                        <p className="font-semibold text-foreground flex items-center gap-1.5">
+                          {seller.full_name}
+                          {!seller.verified && (
+                            <span className="text-[10px] font-medium bg-amber-500/15 text-amber-600 px-1.5 py-0.5 rounded-full">Not verified</span>
+                          )}
+                        </p>
+                        <p className="text-sm text-muted-foreground">{seller.bank_name} • {seller.account_number}</p>
+                        <p className="text-xs text-muted-foreground">{seller.account_name}</p>
+                      </div>
+                      <div className="flex gap-2 self-end sm:self-center">
+                        <Button size="sm" variant="outline" className="text-destructive" onClick={() => setConfirm({ type: "reject_payment", sellerId: seller.user_id, sellerName: seller.full_name })}>
+                          Reject
+                        </Button>
+                        <Button
+                          size="sm"
+                          disabled={!seller.verified}
+                          title={!seller.verified ? "Seller must be verified first" : undefined}
+                          onClick={() => setConfirm({ type: "approve_payment", sellerId: seller.user_id, sellerName: seller.full_name })}
+                        >
+                          Approve
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </TabsContent>
 
           {/* ═══ REPORTS TAB ═══ */}
