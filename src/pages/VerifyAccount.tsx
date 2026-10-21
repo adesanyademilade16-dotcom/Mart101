@@ -10,10 +10,29 @@ import { useToast } from "@/hooks/use-toast";
 
 const CLOUDINARY_CLOUD_NAME = "oxt5nzu7";
 const CLOUDINARY_UPLOAD_PRESET = "mart101_avatars";
-const CLOUDINARY_UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
+const CLOUDINARY_UPLOAD_URL =
+  `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
 
-const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const ALLOWED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+];
+
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+
+type VerificationStatus =
+  | "not_requested"
+  | "pending"
+  | "approved"
+  | "rejected";
+
+interface CloudinaryUploadResponse {
+  secure_url?: string;
+  error?: {
+    message?: string;
+  };
+}
 
 const VerifyAccount = () => {
   const navigate = useNavigate();
@@ -23,47 +42,118 @@ const VerifyAccount = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [status, setStatus] = useState("not_requested");
+
+  const [status, setStatus] =
+    useState<VerificationStatus>("not_requested");
+
   const [matricNumber, setMatricNumber] = useState("");
   const [idPhotoUrl, setIdPhotoUrl] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
 
+  // Load the authenticated user's verification details.
   useEffect(() => {
+    let cancelled = false;
+
     const load = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate("/login");
-        return;
-      }
-      const { data } = await supabase
-        .from("profiles")
-        .select("verification_status, matric_number, id_photo_url")
-        .eq("user_id", session.user.id)
-        .maybeSingle();
+      try {
+        const {
+          data: { session },
+          error: sessionError,
+        } = await supabase.auth.getSession();
 
-      if (data) {
-        setStatus(data.verification_status);
-        setMatricNumber(data.matric_number || "");
-        setIdPhotoUrl(data.id_photo_url);
+        if (sessionError) {
+          throw sessionError;
+        }
+
+        if (!session) {
+          navigate("/login");
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from("profiles")
+          .select(
+            "verification_status, matric_number, id_photo_url"
+          )
+          .eq("user_id", session.user.id)
+          .maybeSingle();
+
+        if (error) {
+          throw error;
+        }
+
+        if (cancelled) return;
+
+        if (data) {
+          const savedStatus = data.verification_status;
+
+          if (
+            savedStatus === "pending" ||
+            savedStatus === "approved" ||
+            savedStatus === "rejected"
+          ) {
+            setStatus(savedStatus);
+          } else {
+            setStatus("not_requested");
+          }
+
+          setMatricNumber(data.matric_number || "");
+          setIdPhotoUrl(data.id_photo_url || null);
+        }
+      } catch (error) {
+        console.error("Failed to load verification details:", error);
+
+        if (!cancelled) {
+          toast({
+            title: "Could not load verification details",
+            description: "Please refresh the page and try again.",
+            variant: "destructive",
+          });
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
-      setLoading(false);
     };
-    load();
-  }, [navigate]);
 
-  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate, toast]);
+
+  // Validate and upload the selected student ID image.
+  const handlePhotoSelect = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = e.target.files?.[0];
+
     if (!file) return;
+
+    setPhotoError(null);
 
     if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
       setPhotoError("Only JPEG, PNG, and WebP images are allowed.");
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+
       return;
     }
+
     if (file.size > MAX_FILE_SIZE_BYTES) {
-      setPhotoError("Image must be under 5MB.");
+      setPhotoError("Image must be 5MB or smaller.");
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+
       return;
     }
-    setPhotoError(null);
+
     setUploadingPhoto(true);
 
     try {
@@ -71,50 +161,133 @@ const VerifyAccount = () => {
       formData.append("file", file);
       formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
 
-      const res = await fetch(CLOUDINARY_UPLOAD_URL, { method: "POST", body: formData });
-      if (!res.ok) throw new Error("Upload failed");
+      const response = await fetch(CLOUDINARY_UPLOAD_URL, {
+        method: "POST",
+        body: formData,
+      });
 
-      const data = await res.json();
-      setIdPhotoUrl(data.secure_url);
-      toast({ title: "ID photo uploaded" });
-    } catch {
-      setPhotoError("Failed to upload image. Please try again.");
+      const result =
+        (await response.json()) as CloudinaryUploadResponse;
+
+      if (!response.ok) {
+        throw new Error(
+          result.error?.message ||
+            `Cloudinary upload failed (${response.status}).`
+        );
+      }
+
+      if (!result.secure_url) {
+        throw new Error(
+          "Cloudinary did not return a secure image URL."
+        );
+      }
+
+      setIdPhotoUrl(result.secure_url);
+
+      toast({
+        title: "ID photo uploaded",
+        description: "Your image is ready for submission.",
+      });
+    } catch (error) {
+      console.error("Student ID upload failed:", error);
+
+      const message =
+        error instanceof Error ? error.message : "";
+
+      setPhotoError(
+        message
+          ? `Upload failed: ${message}`
+          : "Failed to upload image. Please try again."
+      );
     } finally {
       setUploadingPhoto(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
   };
 
+  // Submit the verification request to Supabase.
   const handleSubmit = async () => {
-    if (!matricNumber.trim()) {
-      toast({ title: "Enter your matric number", variant: "destructive" });
+    if (submitting || uploadingPhoto) return;
+
+    const trimmedMatricNumber = matricNumber.trim();
+
+    if (!trimmedMatricNumber) {
+      toast({
+        title: "Enter your matric number",
+        variant: "destructive",
+      });
       return;
     }
+
     if (!idPhotoUrl) {
-      toast({ title: "Upload a photo of your student ID", variant: "destructive" });
+      toast({
+        title: "Upload a photo of your student ID",
+        variant: "destructive",
+      });
       return;
     }
+
     setSubmitting(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
 
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        matric_number: matricNumber.trim(),
-        id_photo_url: idPhotoUrl,
-        verification_status: "pending",
-        verification_requested_at: new Date().toISOString(),
-      })
-      .eq("user_id", session.user.id);
+    try {
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
 
-    setSubmitting(false);
-    if (error) {
-      toast({ title: "Could not submit request", variant: "destructive" });
-      return;
+      if (sessionError) {
+        throw sessionError;
+      }
+
+      if (!session) {
+        toast({
+          title: "Session expired",
+          description: "Please log in again to submit your request.",
+          variant: "destructive",
+        });
+
+        navigate("/login");
+        return;
+      }
+
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          matric_number: trimmedMatricNumber,
+          id_photo_url: idPhotoUrl,
+          verification_status: "pending",
+          verification_requested_at: new Date().toISOString(),
+        })
+        .eq("user_id", session.user.id);
+
+      if (error) {
+        throw error;
+      }
+
+      setStatus("pending");
+
+      toast({
+        title: "Request submitted",
+        description:
+          "An admin will review your details shortly.",
+      });
+    } catch (error) {
+      console.error("Verification submission failed:", error);
+
+      toast({
+        title: "Could not submit request",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
     }
-    setStatus("pending");
-    toast({ title: "Request submitted", description: "An admin will review your details shortly." });
   };
 
   if (loading) {
@@ -131,23 +304,32 @@ const VerifyAccount = () => {
         <div className="container mx-auto px-4 py-4 flex items-center gap-2">
           <Link to="/dashboard" className="flex items-center gap-2">
             <BrandLogo size="md" />
-            <span className="font-cursive text-2xl text-gold">MART101</span>
+            <span className="font-cursive text-2xl text-gold">
+              MART101
+            </span>
           </Link>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-6 max-w-lg">
-        <Link to="/dashboard" className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground mb-6">
-          <ArrowLeft className="w-4 h-4" /> Back to Dashboard
+        <Link
+          to="/dashboard"
+          className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground mb-6"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Dashboard
         </Link>
 
         <div className="flex items-center gap-2 mb-2">
           <BadgeCheck className="w-6 h-6 text-secondary" />
-          <h1 className="text-2xl font-bold text-foreground">Verify Your Account</h1>
+          <h1 className="text-2xl font-bold text-foreground">
+            Verify Your Account
+          </h1>
         </div>
+
         <p className="text-muted-foreground text-sm mb-6">
-          Verification unlocks the verified badge on your profile and is required before
-          Mart101 Pay can be enabled for your listings.
+          Verification unlocks the verified badge on your profile and
+          is required before Mart101 Pay can be enabled for your listings.
         </p>
 
         {status === "approved" && (
@@ -155,47 +337,105 @@ const VerifyAccount = () => {
             You're verified. Your profile now shows the verified badge.
           </div>
         )}
+
         {status === "pending" && (
           <div className="rounded-lg bg-blue-50 border border-blue-200 p-4 text-blue-800 text-sm mb-6">
             Your request is under review. An admin will approve this shortly.
           </div>
         )}
+
         {status === "rejected" && (
           <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-red-800 text-sm mb-6">
-            Your previous request wasn't approved. You can update your details and resubmit below.
+            Your previous request wasn't approved. You can update your
+            details and resubmit below.
           </div>
         )}
 
         <div className="space-y-4">
           <div>
             <Label htmlFor="matric">Matric Number</Label>
-            <Input id="matric" value={matricNumber} onChange={(e) => setMatricNumber(e.target.value)} placeholder="e.g. 2021/CS/045" />
+            <Input
+              id="matric"
+              value={matricNumber}
+              onChange={(e) => setMatricNumber(e.target.value)}
+              placeholder="e.g. 2021/CS/045"
+              disabled={submitting}
+            />
           </div>
 
           <div>
-            <Label>Student ID Photo</Label>
-            <p className="text-xs text-muted-foreground mb-2">A clear photo of your student ID card.</p>
-            <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoSelect} className="hidden" id="id-photo-input" />
+            <Label htmlFor="id-photo-input">Student ID Photo</Label>
+
+            <p className="text-xs text-muted-foreground mb-2">
+              A clear photo of your student ID card.
+            </p>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handlePhotoSelect}
+              className="hidden"
+              id="id-photo-input"
+              disabled={uploadingPhoto || submitting}
+            />
+
             <label
               htmlFor="id-photo-input"
-              className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-secondary transition-colors"
+              className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed border-border rounded-xl p-6 transition-colors ${
+                uploadingPhoto || submitting
+                  ? "opacity-60 cursor-not-allowed"
+                  : "cursor-pointer hover:border-secondary"
+              }`}
             >
               {idPhotoUrl ? (
-                <img src={idPhotoUrl} alt="Student ID" className="max-h-40 rounded-lg object-contain" />
+                <>
+                  <img
+                    src={idPhotoUrl}
+                    alt="Student ID preview"
+                    className="max-h-40 rounded-lg object-contain"
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    {uploadingPhoto
+                      ? "Uploading..."
+                      : "Tap to replace photo"}
+                  </span>
+                </>
               ) : (
                 <>
                   <Camera className="w-6 h-6 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">
-                    {uploadingPhoto ? "Uploading..." : "Tap to upload"}
+                    {uploadingPhoto
+                      ? "Uploading..."
+                      : "Tap to upload"}
                   </span>
                 </>
               )}
             </label>
-            {photoError && <p className="text-xs text-destructive mt-1">{photoError}</p>}
+
+            {photoError && (
+              <p className="text-xs text-destructive mt-1">
+                {photoError}
+              </p>
+            )}
+
+            <p className="text-xs text-muted-foreground mt-2">
+              JPEG, PNG, or WebP. Maximum size: 5MB.
+            </p>
           </div>
 
-          <Button onClick={handleSubmit} disabled={submitting || uploadingPhoto} className="w-full h-12 font-semibold">
-            {submitting ? "Submitting..." : status === "approved" ? "Update Details" : "Submit for Review"}
+          <Button
+            onClick={handleSubmit}
+            disabled={submitting || uploadingPhoto}
+            className="w-full h-12 font-semibold"
+          >
+            {submitting
+              ? "Submitting..."
+              : uploadingPhoto
+                ? "Uploading photo..."
+                : status === "approved"
+                  ? "Update Details"
+                  : "Submit for Review"}
           </Button>
         </div>
       </main>
