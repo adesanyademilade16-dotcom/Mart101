@@ -10,6 +10,7 @@ import BrandLogo from "@/components/BrandLogo";
 import { Button } from "@/components/ui/button";
 import ConfirmModal from "@/components/ConfirmModal";
 import { useNotifications } from "@/contexts/NotificationsContext";
+import InstallAppButton from "@/components/InstallAppButton";
 
 const NAV_LINKS = [
   { to: "/", label: "Home", icon: Home },
@@ -83,15 +84,18 @@ const AppHeader = () => {
             <span className="font-cursive text-lg text-gold">MART101</span>
           </Link>
         </div>
-        {loggedIn ? (
-          <Button asChild size="sm" className="bg-gold text-navy hover:bg-gold/90">
-            <Link to="/dashboard">Dashboard</Link>
-          </Button>
-        ) : (
-          <Button asChild size="sm" className="bg-gold text-navy hover:bg-gold/90">
-            <Link to="/login">Login</Link>
-          </Button>
-        )}
+                <div className="flex items-center gap-2">
+          <InstallAppButton />
+          {loggedIn ? (
+            <Button asChild size="sm" className="bg-gold text-navy hover:bg-gold/90">
+              <Link to="/dashboard">Dashboard</Link>
+            </Button>
+          ) : (
+            <Button asChild size="sm" className="bg-gold text-navy hover:bg-gold/90">
+              <Link to="/login">Login</Link>
+            </Button>
+          )}
+        </div>
       </div>
 
       {mounted && (
