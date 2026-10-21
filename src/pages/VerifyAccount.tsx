@@ -9,7 +9,7 @@ import BrandLogo from "@/components/BrandLogo";
 import { useToast } from "@/hooks/use-toast";
 
 const CLOUDINARY_CLOUD_NAME = "oxt5nzu7";
-const CLOUDINARY_UPLOAD_PRESET = "mart101_id_verification";
+const CLOUDINARY_UPLOAD_PRESET = "mart101_avatars";
 const CLOUDINARY_UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
 
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
