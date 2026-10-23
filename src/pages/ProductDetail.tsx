@@ -215,7 +215,6 @@ const ProductDetail = () => {
           {/* Images */}  
           <div className="space-y-3">  
             {allImages.length > 0 ? (  
-              Carousel  
               <Carousel  
                 className="w-full"  
                 opts={{ loop: true }}  
