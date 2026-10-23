@@ -1,5 +1,6 @@
 import { useSEO } from "@/hooks/useSEO";
 import { useEffect, useState, useMemo } from "react";
+import PaystackPop from "@paystack/inline-js";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, MessageCircle, ShoppingBag, Flag, AlertTriangle, ShieldCheck } from "lucide-react";
 import LazyImage from "@/components/LazyImage";
