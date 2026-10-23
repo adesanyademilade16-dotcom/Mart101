@@ -38,6 +38,7 @@ const VerifyAccount = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [removingPhoto, setRemovingPhoto] = useState(false);
   const [status, setStatus] =
     useState<VerificationStatus>("not_requested");
   const [matricNumber, setMatricNumber] = useState("");
@@ -182,24 +183,77 @@ const VerifyAccount = () => {
     }
   };
 
-  const handleRemovePhoto = () => {
-    if (isLocked || submitting || uploadingPhoto) return;
+  const handleRemovePhoto = async () => {
+    if (isLocked || submitting || uploadingPhoto || removingPhoto) return;
 
-    setIdPhotoUrl(null);
-    setPhotoError(null);
+    setRemovingPhoto(true);
 
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+    try {
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (sessionError) throw sessionError;
+
+      if (!session) {
+        toast({
+          title: "Session expired",
+          description: "Please log in again.",
+          variant: "destructive",
+        });
+        navigate("/login");
+        return;
+      }
+
+      // Only clears if status is still something a seller is allowed to
+      // edit (not_requested or rejected) — mirrors the same guard used
+      // on submit, so a pending/approved row can never be wiped this way
+      // even if this ran in a stale tab.
+      const { data, error } = await supabase
+        .from("profiles")
+        .update({ id_photo_url: null })
+        .eq("user_id", session.user.id)
+        .neq("verification_status", "pending")
+        .neq("verification_status", "approved")
+        .select("verification_status");
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        toast({
+          title: "Could not remove photo",
+          description: "Your request status changed — please refresh the page.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setIdPhotoUrl(null);
+      setPhotoError(null);
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+
+      toast({
+        title: "Photo removed",
+        description: "You can upload a new ID photo whenever you're ready.",
+      });
+    } catch (error) {
+      console.error("Failed to remove photo:", error);
+      toast({
+        title: "Could not remove photo",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setRemovingPhoto(false);
     }
-
-    toast({
-      title: "Photo removed",
-      description: "You can upload the correct ID photo whenever you're ready.",
-    });
   };
 
   const handleSubmit = async () => {
-    if (submitting || uploadingPhoto || isLocked) return;
+    if (submitting || uploadingPhoto || removingPhoto || isLocked) return;
 
     const trimmedMatricNumber = matricNumber.trim();
 
@@ -411,12 +465,12 @@ const VerifyAccount = () => {
               onChange={handlePhotoSelect}
               className="hidden"
               id="id-photo-input"
-              disabled={isLocked || uploadingPhoto || submitting}
+              disabled={isLocked || uploadingPhoto || submitting || removingPhoto}
             />
 
             <div
               className={`relative flex flex-col items-center justify-center gap-2 border-2 border-dashed border-border rounded-xl p-6 transition-colors ${
-                isLocked || uploadingPhoto || submitting
+                isLocked || uploadingPhoto || submitting || removingPhoto
                   ? "opacity-70"
                   : "hover:border-secondary"
               }`}
@@ -433,7 +487,7 @@ const VerifyAccount = () => {
                     <button
                       type="button"
                       onClick={handleRemovePhoto}
-                      disabled={uploadingPhoto || submitting}
+                      disabled={uploadingPhoto || submitting || removingPhoto}
                       aria-label="Remove student ID photo"
                       title="Remove photo"
                       className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-destructive text-white shadow-md transition-opacity hover:opacity-80 disabled:opacity-50"
@@ -447,7 +501,9 @@ const VerifyAccount = () => {
                       htmlFor="id-photo-input"
                       className="text-sm text-secondary cursor-pointer hover:underline"
                     >
-                      {uploadingPhoto
+                      {removingPhoto
+                        ? "Removing..."
+                        : uploadingPhoto
                         ? "Uploading..."
                         : "Tap to replace photo"}
                     </label>
@@ -496,6 +552,7 @@ const VerifyAccount = () => {
             disabled={
               submitting ||
               uploadingPhoto ||
+              removingPhoto ||
               isLocked
             }
             className="w-full h-12 font-semibold"
