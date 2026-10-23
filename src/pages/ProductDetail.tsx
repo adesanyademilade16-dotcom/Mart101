@@ -406,5 +406,4 @@ return (
 
 );
 };
-
 export default ProductDetail;
