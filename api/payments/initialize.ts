@@ -96,5 +96,9 @@ export default async function handler(req: any, res: any) {
 
   await supabase.from("orders").update({ paystack_reference: order.id }).eq("id", order.id);
 
-  return res.status(200).json({ authorization_url: paystackData.data.authorization_url });
+  return res.status(200).json({
+  authorization_url: paystackData.data.authorization_url,
+  access_code: paystackData.data.access_code,
+  reference: paystackData.data.reference,
+});
 }
