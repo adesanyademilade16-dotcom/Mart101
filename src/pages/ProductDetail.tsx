@@ -1,6 +1,5 @@
 import { useSEO } from "@/hooks/useSEO";
 import { useEffect, useState, useMemo } from "react";
-import PaystackPop from "@paystack/inline-js";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, MessageCircle, ShoppingBag, Flag, AlertTriangle, ShieldCheck } from "lucide-react";
 import LazyImage from "@/components/LazyImage";
@@ -44,6 +43,7 @@ interface Product {
     whatsapp_number: string;
     verified?: boolean;
     user_id?: string;
+    payment_status?: string;
   };
 }
 
@@ -137,16 +137,25 @@ const ProductDetail = () => {
   };
 
   const handlePayNow = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
     if (!session) {
       setShowAuthPrompt(true);
       return;
     }
+
     if (session.user.id === product?.seller_id) {
-      toast({ title: "You can't buy your own listing", variant: "destructive" });
+      toast({
+        title: "You can't buy your own listing",
+        variant: "destructive",
+      });
       return;
     }
+
     setPayingNow(true);
+
     try {
       const res = await fetch("/api/payments/initialize", {
         method: "POST",
@@ -156,15 +165,52 @@ const ProductDetail = () => {
         },
         body: JSON.stringify({ product_id: product?.id }),
       });
+
       const data = await res.json();
-      if (!res.ok || !data.authorization_url) {
-        toast({ title: "Could not start payment", description: data.error || "Please try again.", variant: "destructive" });
+
+      if (!res.ok || !data.access_code) {
+        toast({
+          title: "Could not start payment",
+          description: data.error || "Please try again.",
+          variant: "destructive",
+        });
         setPayingNow(false);
         return;
       }
-      window.location.href = data.authorization_url;
+
+      const popup = new PaystackPop();
+
+      popup.resumeTransaction(data.access_code, {
+        onSuccess: () => {
+          toast({
+            title: "Payment submitted",
+            description:
+              "We're checking your payment. Please wait for confirmation before assuming your order is paid.",
+          });
+          setPayingNow(false);
+        },
+        onCancel: () => {
+          setPayingNow(false);
+          toast({
+            title: "Payment cancelled",
+            description: "You can try again whenever you're ready.",
+          });
+        },
+        onError: (error) => {
+          setPayingNow(false);
+          toast({
+            title: "Unable to open checkout",
+            description: error.message || "Please try again.",
+            variant: "destructive",
+          });
+        },
+      });
     } catch {
-      toast({ title: "Network error", description: "Please check your connection and try again.", variant: "destructive" });
+      toast({
+        title: "Network error",
+        description: "Please check your connection and try again.",
+        variant: "destructive",
+      });
       setPayingNow(false);
     }
   };
@@ -316,7 +362,7 @@ const ProductDetail = () => {
               <PaymentTrustMessage paymentType={product.payment_type || "Pay on Delivery"} />
             </div>
 
-              {product.profiles?.payment_status === "approved" && product.payment_type !== "Pre-order" && (
+            {product.profiles?.payment_status === "approved" && product.payment_type !== "Pre-order" && (
               <Button
                 onClick={handlePayNow}
                 disabled={payingNow}
