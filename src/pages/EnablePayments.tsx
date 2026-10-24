@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import BrandLogo from "@/components/BrandLogo";
 import { useToast } from "@/hooks/use-toast";
 
@@ -17,6 +18,7 @@ const EnablePayments = () => {
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState<PaymentStatus>("not_requested");
   const [editingApproved, setEditingApproved] = useState(false);
+  const [editReason, setEditReason] = useState(""); 
   const [bankName, setBankName] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [accountName, setAccountName] = useState("");
@@ -26,6 +28,7 @@ const EnablePayments = () => {
   useEffect(() => {
     const load = async () => {
       const { data: { session } } = await supabase.auth.getSession();
+     
       if (!session) {
         navigate("/login");
         return;
