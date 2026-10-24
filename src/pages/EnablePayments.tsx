@@ -8,15 +8,20 @@ import { Label } from "@/components/ui/label";
 import BrandLogo from "@/components/BrandLogo";
 import { useToast } from "@/hooks/use-toast";
 
+type PaymentStatus = "not_requested" | "pending" | "approved" | "rejected";
+
 const EnablePayments = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [status, setStatus] = useState("not_requested");
+  const [status, setStatus] = useState<PaymentStatus>("not_requested");
+  const [editingApproved, setEditingApproved] = useState(false);
   const [bankName, setBankName] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [accountName, setAccountName] = useState("");
+
+  const isLocked = status === "pending" || (status === "approved" && !editingApproved);
 
   useEffect(() => {
     const load = async () => {
@@ -51,7 +56,7 @@ const EnablePayments = () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
-    const { error } = await supabase
+    let query = supabase
       .from("profiles")
       .update({
         bank_name: bankName,
@@ -62,12 +67,25 @@ const EnablePayments = () => {
       })
       .eq("user_id", session.user.id);
 
+    // Guard against a stale tab: only allow the exact transition we think we're making
+    query = editingApproved
+      ? query.eq("payment_status", "approved")
+      : query.neq("payment_status", "pending").neq("payment_status", "approved");
+
+    const { data, error } = await query.select("payment_status");
     setSubmitting(false);
+
     if (error) {
       toast({ title: "Could not submit request", variant: "destructive" });
       return;
     }
+    if (!data || data.length === 0) {
+      toast({ title: "Your status changed — please refresh and try again", variant: "destructive" });
+      return;
+    }
+
     setStatus("pending");
+    setEditingApproved(false);
     toast({ title: "Request submitted", description: "An admin will review your details shortly." });
   };
 
@@ -101,43 +119,52 @@ const EnablePayments = () => {
         </div>
         <p className="text-muted-foreground text-sm mb-6">
           Let buyers pay securely through Mart101. Payment is held until the buyer confirms
-          they've received their item, then sent to the bank details below. Mart101 Pay only
-          applies to items ready for handover within 3 days — not pre-order listings.
+          they've received their item, then sent to the bank details below.
         </p>
 
-        {status === "approved" && (
-          <div className="rounded-lg bg-green-50 border border-green-200 p-4 text-green-800 text-sm mb-6">
-            You're approved. Buyers can now pay for your eligible listings through Mart101 Pay.
+        {status === "approved" && !editingApproved && (
+          <div className="rounded-lg bg-green-50 border border-green-200 p-4 text-green-800 text-sm mb-6 space-y-2">
+            <p>You're approved. Buyers can pay for your eligible listings.</p>
+            <Button size="sm" variant="outline" onClick={() => setEditingApproved(true)}>
+              Request to Edit Details
+            </Button>
           </div>
         )}
         {status === "pending" && (
           <div className="rounded-lg bg-blue-50 border border-blue-200 p-4 text-blue-800 text-sm mb-6">
-            Your request is under review. An admin will approve this shortly.
+            Your request is under review. You can't submit again until the admin responds.
           </div>
         )}
         {status === "rejected" && (
           <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-red-800 text-sm mb-6">
-            Your previous request wasn't approved. You can update your details and resubmit below.
+            Your previous request wasn't approved. Update your details and resubmit below.
+          </div>
+        )}
+        {editingApproved && (
+          <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 text-amber-800 text-sm mb-6">
+            Updating your details will pause Mart101 Pay on your listings until an admin re-approves them.
           </div>
         )}
 
         <div className="space-y-4">
           <div>
             <Label htmlFor="bankName">Bank Name</Label>
-            <Input id="bankName" value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="e.g. GTBank" />
+            <Input id="bankName" value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="e.g. GTBank" disabled={isLocked} />
           </div>
           <div>
             <Label htmlFor="accountNumber">Account Number</Label>
-            <Input id="accountNumber" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder="10-digit account number" />
+            <Input id="accountNumber" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder="10-digit account number" disabled={isLocked} />
           </div>
           <div>
             <Label htmlFor="accountName">Account Name</Label>
-            <Input id="accountName" value={accountName} onChange={(e) => setAccountName(e.target.value)} placeholder="Must match your bank account" />
+            <Input id="accountName" value={accountName} onChange={(e) => setAccountName(e.target.value)} placeholder="Must match your bank account" disabled={isLocked} />
           </div>
 
-          <Button onClick={handleSubmit} disabled={submitting} className="w-full h-12 font-semibold">
-            {submitting ? "Submitting..." : status === "approved" ? "Update Details" : "Submit for Review"}
-          </Button>
+          {!isLocked && (
+            <Button onClick={handleSubmit} disabled={submitting} className="w-full h-12 font-semibold">
+              {submitting ? "Submitting..." : "Submit for Review"}
+            </Button>
+          )}
         </div>
       </main>
     </div>
