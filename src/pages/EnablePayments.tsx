@@ -50,9 +50,13 @@ const EnablePayments = () => {
     load();
   }, [navigate]);
 
-  const handleSubmit = async () => {
+    const handleSubmit = async () => {
     if (!bankName || !accountNumber || !accountName) {
       toast({ title: "Fill in all fields", variant: "destructive" });
+      return;
+    }
+    if (editingApproved && !editReason.trim()) {
+      toast({ title: "Tell us why you're updating your details", variant: "destructive" });
       return;
     }
     setSubmitting(true);
@@ -61,12 +65,13 @@ const EnablePayments = () => {
 
     let query = supabase
       .from("profiles")
-      .update({
+           .update({
         bank_name: bankName,
         account_number: accountNumber,
         account_name: accountName,
         payment_status: "pending",
         payment_requested_at: new Date().toISOString(),
+        payment_edit_reason: editingApproved ? editReason.trim() : null,
       })
       .eq("user_id", session.user.id);
 
@@ -143,9 +148,14 @@ const EnablePayments = () => {
             Your previous request wasn't approved. Update your details and resubmit below.
           </div>
         )}
+     
         {editingApproved && (
-          <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 text-amber-800 text-sm mb-6">
-            Updating your details will pause Mart101 Pay on your listings until an admin re-approves them.
+          <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 text-amber-800 text-sm mb-6 space-y-3">
+            <p>Updating your details will pause Mart101 Pay on your listings until an admin re-approves them.</p>
+            <div>
+              <Label htmlFor="editReason">Why are you updating your details?</Label>
+              <Textarea id="editReason" value={editReason} onChange={(e) => setEditReason(e.target.value)} placeholder="e.g. Changed banks, old account closed..." />
+            </div>
           </div>
         )}
 
