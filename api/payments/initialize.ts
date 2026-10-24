@@ -38,7 +38,7 @@ export default async function handler(req: any, res: any) {
 
   const { data: product, error: productError } = await supabase
     .from("products")
-    .select("id, name, price, seller_id")
+    .select("id, name, price, seller_id, image_url")
     .eq("id", product_id)
     .maybeSingle();
 
@@ -57,8 +57,10 @@ export default async function handler(req: any, res: any) {
 
   const { data: order, error: orderError } = await supabase
     .from("orders")
-    .insert({
+        .insert({
       product_id: product.id,
+      product_name: product.name,
+      product_image_url: product.image_url,
       buyer_id: user.id,
       seller_id: product.seller_id,
       item_amount: product.price,
