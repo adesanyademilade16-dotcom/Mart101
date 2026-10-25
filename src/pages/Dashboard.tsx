@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { ShoppingBag, Plus, Trash2, Upload, AlertTriangle, CalendarDays, Package, ShieldCheck, BadgeCheck } from "lucide-react";import AppHeader from "@/components/AppHeader";
+import { ShoppingBag, Plus, Trash2, Upload, AlertTriangle, CalendarDays, Package, ShieldCheck, BadgeCheck, Clock } from "lucide-react";
+import AppHeader from "@/components/AppHeader";
 import ConfirmModal from "@/components/ConfirmModal";
 import ConditionBadge from "@/components/ConditionBadge";
 import VerifiedBadge from "@/components/VerifiedBadge";
@@ -64,6 +65,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [sellerOrders, setSellerOrders] = useState<Array<{ id: string; product_name: string; status: string; total_paid: number; daysLeft: number | null }>>([]);
 
   const [newProduct, setNewProduct] = useState({ name: "", price: "", description: "", category: "", condition: "", defectsDescription: "", paymentType: "", deliveryTimeframe: "" });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -92,6 +94,25 @@ const Dashboard = () => {
         .eq("user_id", session.user.id)
         .single();
       setProfile(profileData);
+
+      const { data: ordersData } = await supabase
+        .from("orders")
+        .select("id, product_name, status, total_paid, auto_release_at")
+        .eq("seller_id", session.user.id)
+        .in("status", ["paid_held", "released", "disputed"])
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      if (ordersData) {
+        setSellerOrders(
+          ordersData.map((o) => ({
+            ...o,
+            daysLeft: o.auto_release_at
+              ? Math.max(0, Math.ceil((new Date(o.auto_release_at).getTime() - Date.now()) / 86400000))
+              : null,
+          }))
+        );
+      }
 
       // OAuth users (e.g. Google) won't have WhatsApp/department/level yet — send them to onboarding.
       if (
@@ -399,7 +420,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-                        {/* Verification status */}
+        {/* Verification status */}
         <div className="glass-card p-5 mb-6 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
             <BadgeCheck className="w-6 h-6 text-secondary shrink-0" />
@@ -446,6 +467,43 @@ const Dashboard = () => {
             </Button>
           </Link>
         </div>
+
+        {/* Orders on your listings */}
+        {sellerOrders.length > 0 && (
+          <div className="glass-card p-5 mb-6">
+            <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+              <ShoppingBag className="w-5 h-5 text-secondary" /> Orders on Your Listings
+            </h3>
+            <div className="space-y-3">
+              {sellerOrders.map((order) => (
+                <div key={order.id} className="flex items-center justify-between gap-3 border-t border-border/50 pt-3 first:border-t-0 first:pt-0">
+                  <div className="min-w-0">
+                    <p className="font-medium text-foreground text-sm truncate">{order.product_name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {order.status === "paid_held" && order.daysLeft !== null
+                        ? `Buyer has ${order.daysLeft} day(s) left to confirm`
+                        : order.status === "released"
+                        ? "Confirmed — payout processing"
+                        : order.status === "disputed"
+                        ? "Buyer reported an issue"
+                        : "Payment pending"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {order.status === "paid_held" && <Clock className="w-4 h-4 text-blue-500" />}
+                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                      order.status === "released" ? "bg-emerald-500/10 text-emerald-600" :
+                      order.status === "disputed" ? "bg-amber-500/10 text-amber-600" :
+                      "bg-blue-500/10 text-blue-600"
+                    }`}>
+                      ₦{Number(order.total_paid).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {profile?.suspended && (
           <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-4 mb-6 flex items-center gap-3">

@@ -42,6 +42,7 @@ interface Product {
     full_name: string;
     whatsapp_number: string;
     verified?: boolean;
+    payment_status?: string;
     user_id?: string;
   };
 }
@@ -55,6 +56,8 @@ const ProductDetail = () => {
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [payingNow, setPayingNow] = useState(false);
+  const [myOrderStatus, setMyOrderStatus] = useState<string | null>(null);
+  const [checkingOrder, setCheckingOrder] = useState(true);
   const { toast } = useToast();
 
   const allImages = useMemo(() => {
@@ -87,6 +90,29 @@ const ProductDetail = () => {
       setLoading(false);
     };
     fetch();
+  }, [id]);
+
+  useEffect(() => {
+    const checkExistingOrder = async () => {
+      if (!id) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setCheckingOrder(false);
+        return;
+      }
+      const { data } = await supabase
+        .from("orders")
+        .select("status")
+        .eq("product_id", id)
+        .eq("buyer_id", session.user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      setMyOrderStatus(data?.status || null);
+      setCheckingOrder(false);
+    };
+    checkExistingOrder();
   }, [id]);
 
   useSEO(
@@ -263,7 +289,7 @@ const ProductDetail = () => {
             <div className="flex items-start justify-between gap-3">
               <h1 className="text-2xl md:text-3xl font-bold text-foreground">{product.name}</h1>
               <ShareButton
-                url={`https://mart101.vercel.app/product/${product.id}`}
+                url={`https://mart101.vercel.app/api/share/product/${product.id}`}
                 title={product.name}
                 text={`Check out "${product.name}" on MART101 for ₦${Number(product.price).toLocaleString()}`}
                 className="shrink-0"
@@ -315,7 +341,27 @@ const ProductDetail = () => {
               <PaymentTrustMessage paymentType={product.payment_type || "Pay on Delivery"} />
             </div>
 
-              {product.profiles?.payment_status === "approved" && product.payment_type !== "Pre-order" && (
+            {!checkingOrder && myOrderStatus === "paid_held" && (
+              <Link to="/my-purchases">
+                <Button className="w-full font-semibold text-base h-14 mt-6 bg-blue-600 hover:bg-blue-700 text-white">
+                  Payment Sent — View in My Purchases
+                </Button>
+              </Link>
+            )}
+            {!checkingOrder && myOrderStatus === "released" && (
+              <Button disabled className="w-full font-semibold text-base h-14 mt-6 bg-emerald-600 text-white opacity-90">
+                You Bought This — Completed
+              </Button>
+            )}
+            {!checkingOrder && myOrderStatus === "disputed" && (
+              <Link to="/my-purchases">
+                <Button className="w-full font-semibold text-base h-14 mt-6 bg-amber-600 hover:bg-amber-700 text-white">
+                  Refund Requested — View Status
+                </Button>
+              </Link>
+            )}
+            {!checkingOrder && !myOrderStatus &&
+              product.profiles?.payment_status === "approved" && product.payment_type !== "Pre-order" && (
               <Button
                 onClick={handlePayNow}
                 disabled={payingNow}
@@ -325,7 +371,7 @@ const ProductDetail = () => {
                 {payingNow ? "Starting payment..." : "Pay Now (Buyer Protected)"}
               </Button>
             )}
-            
+
             <div className="grid grid-cols-2 gap-3 mt-3">
               <MessageSellerButton
                 sellerId={product.seller_id}
