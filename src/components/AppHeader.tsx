@@ -81,10 +81,110 @@ const AppHeader = () => {
           </button>
           <Link to="/" className="flex items-center gap-2">
             <BrandLogo size="sm" />
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  Menu, X, Home, Store, PlusCircle, LayoutDashboard, ShieldCheck,
+  Info, HelpCircle, FileText, Lock, ClipboardCheck, Mail, LogOut, MessageCircle, Heart, ShoppingCart,
+} from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAdmin } from "@/hooks/useAdmin";
+import BrandLogo from "@/components/BrandLogo";
+import { Button } from "@/components/ui/button";
+import ConfirmModal from "@/components/ConfirmModal";
+import { useNotifications } from "@/contexts/NotificationsContext";
+import InstallAppButton from "@/components/InstallAppButton";
+
+const NAV_LINKS = [
+  { to: "/", label: "Home", icon: Home },
+  { to: "/marketplace", label: "Browse Marketplace", icon: Store },
+  { to: "/messages", label: "Messages", icon: MessageCircle },
+  { to: "/my-purchases", label: "My Purchases", icon: ShoppingCart },
+  { to: "/dashboard?tab=sell", label: "Sell a Product", icon: PlusCircle },
+  { to: "/dashboard", label: "My Dashboard", icon: LayoutDashboard },
+  { to: "/liked", label: "Liked Items", icon: Heart },
+];
+
+const ADMIN_LINK = { to: "/admin", label: "Admin Dashboard", icon: ShieldCheck };
+
+const INFO_LINKS = [
+  { to: "/about", label: "About Us", icon: Info },
+  { to: "/help", label: "Need Help", icon: HelpCircle },
+  { to: "/terms", label: "Terms of Service", icon: FileText },
+  { to: "/privacy", label: "Privacy Policy", icon: Lock },
+  { to: "/condition-policy", label: "Condition Policy", icon: ClipboardCheck },
+  { to: "/contact", label: "Contact Us", icon: Mail },
+];
+
+const AppHeader = () => {
+  const [mounted, setMounted] = useState(false); // in the DOM
+  const [visible, setVisible] = useState(false); // slid into view
+  const [loggedIn, setLoggedIn] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const { isAdmin } = useAdmin();
+  const { unreadCount } = useNotifications();
+  const [pendingPurchases, setPendingPurchases] = useState(0);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => setLoggedIn(!!session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => setLoggedIn(!!session));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!loggedIn) return;
+    const loadPending = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const { count } = await supabase
+        .from("orders")
+        .select("id", { count: "exact", head: true })
+        .eq("buyer_id", session.user.id)
+        .eq("status", "paid_held");
+      setPendingPurchases(count || 0);
+    };
+    loadPending();
+  }, [loggedIn]);
+
+  const openMenu = () => {
+    setMounted(true);
+    // wait one frame so the browser paints the closed position first,
+    // then flip to visible so the transition actually animates
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => setVisible(true));
+    });
+  };
+
+  const closeMenu = () => {
+    setVisible(false);
+    setTimeout(() => setMounted(false), 300); // matches duration-300
+  };
+
+  const requestLogout = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = async () => {
+    await supabase.auth.signOut();
+    setShowLogoutConfirm(false);
+    closeMenu();
+    navigate("/login");
+  };
+
+  return (
+    <header className="sticky top-0 z-40 bg-navy text-white">
+      <div className="flex items-center justify-between px-4 py-3">
+        <div className="flex items-center gap-3">
+          <button onClick={openMenu} aria-label="Open menu">
+            <Menu className="h-6 w-6" />
+          </button>
+          <Link to="/" className="flex items-center gap-2">
+            <BrandLogo size="sm" />
             <span className="font-cursive text-lg text-gold">MART101</span>
           </Link>
         </div>
-                <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <InstallAppButton />
           {loggedIn ? (
             <Button asChild size="sm" className="bg-gold text-navy hover:bg-gold/90">
@@ -129,6 +229,11 @@ const AppHeader = () => {
                   {link.to === "/messages" && unreadCount > 0 && (
                     <span className="bg-destructive text-destructive-foreground text-xs font-bold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center">
                       {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  )}
+                  {link.to === "/my-purchases" && pendingPurchases > 0 && (
+                    <span className="bg-gold text-navy text-xs font-bold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center">
+                      {pendingPurchases > 99 ? "99+" : pendingPurchases}
                     </span>
                   )}
                 </Link>
