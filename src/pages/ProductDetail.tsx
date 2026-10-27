@@ -93,6 +93,44 @@ const ProductDetail = () => {
   }, [id]);
 
   useEffect(() => {
+    // Paystack returns to this product page with a reference. Verify on the server;
+    // never treat the redirect alone as proof of payment.
+    const params = new URLSearchParams(window.location.search);
+    const callbackReference = params.get("reference") || params.get("trxref");
+    if (!callbackReference) return;
+
+    let cancelled = false;
+    const verifyReturnedPayment = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      try {
+        const response = await fetch("/api/payments/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ order_id: callbackReference }),
+        });
+        const result = await response.json();
+        if (cancelled) return;
+        if (response.ok && result.status === "paid_held") {
+          setMyOrderStatus("paid_held");
+          toast({ title: "Payment confirmed", description: "Your order is now available in My Purchases." });
+        } else if (result.status === "pending_payment") {
+          toast({ title: "Payment is being confirmed", description: "Your order will update when Paystack confirms the transaction." });
+        } else if (!response.ok) {
+          toast({ title: "Payment not confirmed yet", description: result.error || "Check My Purchases shortly.", variant: "destructive" });
+        }
+      } catch {
+        if (!cancelled) toast({ title: "Could not verify payment yet", description: "Please check My Purchases again shortly.", variant: "destructive" });
+      } finally {
+        // Remove Paystack query parameters so a refresh doesn't repeat the callback flow.
+        if (!cancelled) window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    };
+    verifyReturnedPayment();
+    return () => { cancelled = true; };
+  }, [toast]);
+
+  useEffect(() => {
     const checkExistingOrder = async () => {
       if (!id) return;
       const { data: { session } } = await supabase.auth.getSession();
@@ -352,6 +390,13 @@ const ProductDetail = () => {
               <Button disabled className="w-full font-semibold text-base h-14 mt-6 bg-emerald-600 text-white opacity-90">
                 You Bought This — Completed
               </Button>
+            )}
+            {!checkingOrder && myOrderStatus === "pending_payment" && (
+              <Link to="/my-purchases">
+                <Button variant="outline" className="w-full font-semibold text-base h-14 mt-6">
+                  Payment awaiting confirmation — View My Purchases
+                </Button>
+              </Link>
             )}
             {!checkingOrder && myOrderStatus === "disputed" && (
               <Link to="/my-purchases">

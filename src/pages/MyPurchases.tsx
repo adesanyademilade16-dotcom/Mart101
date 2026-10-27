@@ -171,6 +171,7 @@ const MyPurchases = () => {
                     <p className="text-sm font-semibold text-secondary">₦{Number(order.total_paid).toLocaleString()}</p>
                   </div>
                   <div>
+                    {order.status === "pending_payment" && <span className="text-xs font-medium bg-amber-500/10 text-amber-600 px-2 py-1 rounded-full">Payment awaiting confirmation</span>}
                     {order.status === "paid_held" && <span className="text-xs font-medium bg-blue-500/10 text-blue-600 px-2 py-1 rounded-full">Awaiting pickup</span>}
                     {order.status === "released" && <span className="text-xs font-medium bg-emerald-500/10 text-emerald-600 px-2 py-1 rounded-full">Completed</span>}
                     {order.status === "disputed" && <span className="text-xs font-medium bg-amber-500/10 text-amber-600 px-2 py-1 rounded-full">Refund requested</span>}

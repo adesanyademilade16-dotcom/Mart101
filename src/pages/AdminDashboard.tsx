@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Trash2, Ban, Flag, ShoppingBag, BadgeCheck, FlagOff,
-  ShieldCheck, ShieldOff, Users, FileText, Activity, AlertTriangle, Wallet,
+  ShieldCheck, ShieldOff, Users, FileText, Activity, AlertTriangle, Wallet, ClipboardList,
 } from "lucide-react";
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip,
@@ -70,6 +70,21 @@ interface ReportRow {
   product_name?: string;
 }
 
+interface AdminOrder {
+  id: string;
+  product_id: string | null;
+  product_name: string | null;
+  product_image_url: string | null;
+  buyer_id: string;
+  seller_id: string;
+  item_amount: number;
+  total_paid: number | null;
+  status: string;
+  paystack_reference: string | null;
+  created_at: string | null;
+  paid_at: string | null;
+}
+
 interface ActivityRow {
   id: string;
   action_type: string;
@@ -128,6 +143,7 @@ const AdminDashboard = () => {
   const [sellers, setSellers] = useState<SellerRow[]>([]);
   const [reports, setReports] = useState<ReportRow[]>([]);
   const [activityLog, setActivityLog] = useState<ActivityRow[]>([]);
+  const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirm, setConfirm] = useState<ConfirmAction | null>(null);
   const [adminName, setAdminName] = useState("Admin");
@@ -175,12 +191,15 @@ const AdminDashboard = () => {
         { data: profilesData, count: usersCount },
         { data: reportsData },
         { data: logData },
+        { data: ordersData },
       ] = await Promise.all([
         supabase.from("products").select("*").order("flagged", { ascending: false }).order("created_at", { ascending: false }),
         supabase.from("profiles").select("*", { count: "exact" }),
         supabase.from("product_reports").select("*").order("created_at", { ascending: false }),
         supabase.from("admin_activity_log").select("*").order("created_at", { ascending: false }).limit(100),
+        supabase.from("orders").select("id,product_id,product_name,product_image_url,buyer_id,seller_id,item_amount,total_paid,status,paystack_reference,created_at,paid_at").order("created_at", { ascending: false }).limit(500),
       ]);
+      setOrders((ordersData || []) as AdminOrder[]);
 
       setTotalUsers(usersCount ?? 0);
       setActivityLog((logData || []) as ActivityRow[]);
@@ -484,7 +503,7 @@ const AdminDashboard = () => {
         <p className="text-muted-foreground mb-6">Admin Control Panel</p>
 
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 h-auto">
+          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 h-auto">
             <TabsTrigger value="overview" className="flex items-center gap-1.5 text-xs sm:text-sm py-2">
               <ShoppingBag className="w-4 h-4" /> Overview
             </TabsTrigger>
@@ -506,6 +525,10 @@ const AdminDashboard = () => {
                   {pendingReports.length}
                 </span>
               )}
+            </TabsTrigger>
+            <TabsTrigger value="orders" className="flex items-center gap-1.5 text-xs sm:text-sm py-2">
+              <ClipboardList className="w-4 h-4" /> Purchases
+              {orders.length > 0 && <span className="ml-1 rounded-full bg-secondary text-secondary-foreground px-1.5 text-[10px]">{orders.length > 99 ? "99+" : orders.length}</span>}
             </TabsTrigger>
             <TabsTrigger value="activity" className="flex items-center gap-1.5 text-xs sm:text-sm py-2">
               <Activity className="w-4 h-4" /> Log
@@ -865,6 +888,41 @@ const AdminDashboard = () => {
               </div>
             );
             })()}
+          </TabsContent>
+
+          {/* ═══ PURCHASE MONITORING TAB ═══ */}
+          <TabsContent value="orders" className="space-y-4">
+            <div>
+              <h2 className="text-xl font-bold text-foreground">Purchase Monitoring</h2>
+              <p className="text-sm text-muted-foreground">Orders are retained here even when a product listing is no longer available.</p>
+            </div>
+            {orders.length === 0 ? (
+              <p className="text-center text-muted-foreground py-10">No orders found. If you expected orders here, check the orders query and admin RLS access.</p>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-border">
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b border-border bg-muted/40 text-left">
+                    <th className="p-3">Product / Order</th><th className="p-3">Buyer</th><th className="p-3">Seller</th><th className="p-3">Amount</th><th className="p-3">Payment / Order status</th><th className="p-3">Date</th>
+                  </tr></thead>
+                  <tbody>
+                    {orders.map((order) => {
+                      const buyer = sellers.find((person) => person.user_id === order.buyer_id);
+                      const seller = sellers.find((person) => person.user_id === order.seller_id);
+                      return (
+                        <tr key={order.id} className="border-b border-border/60 align-top">
+                          <td className="p-3 min-w-48"><p className="font-medium">{order.product_name || "Deleted / unnamed listing"}</p><p className="text-xs text-muted-foreground break-all">Order {order.id}</p><p className="text-xs text-muted-foreground">Product ID: {order.product_id || "Listing removed"}</p></td>
+                          <td className="p-3 min-w-32"><p>{buyer?.full_name || "Buyer profile unavailable"}</p><p className="text-xs text-muted-foreground break-all">{order.buyer_id}</p></td>
+                          <td className="p-3 min-w-32"><p>{seller?.full_name || "Seller profile unavailable"}</p><p className="text-xs text-muted-foreground break-all">{order.seller_id}</p></td>
+                          <td className="p-3 whitespace-nowrap"><p>₦{Number(order.total_paid ?? order.item_amount).toLocaleString()}</p><p className="text-xs text-muted-foreground">Item: ₦{Number(order.item_amount).toLocaleString()}</p></td>
+                          <td className="p-3 min-w-36"><Badge variant={order.status === "paid_held" || order.status === "released" ? "default" : order.status === "disputed" ? "destructive" : "secondary"}>{order.status.replaceAll("_", " ")}</Badge>{order.paystack_reference && <p className="text-xs text-muted-foreground mt-1 break-all">Ref: {order.paystack_reference}</p>}</td>
+                          <td className="p-3 whitespace-nowrap text-xs">{order.created_at ? new Date(order.created_at).toLocaleString() : "—"}<p className="text-muted-foreground">{order.paid_at ? `Paid ${new Date(order.paid_at).toLocaleString()}` : "Not marked paid"}</p></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </TabsContent>
 
           {/* ═══ ACTIVITY LOG TAB ═══ */}
