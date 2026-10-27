@@ -39,11 +39,17 @@ export default async function handler(req: any, res: any) {
 
     const { data: order } = await supabase
       .from("orders")
-      .select("id, status")
+      .select("id, status, total_paid, paystack_reference")
       .eq("id", reference)
       .maybeSingle();
 
-    if (order && order.status === "pending_payment") {
+    const paidAmountKobo = Number(event.data.amount);
+    const expectedAmountKobo = order ? Math.round(Number(order.total_paid) * 100) : -1;
+    const referenceMatches = !!order && (order.paystack_reference || order.id) === reference;
+    const validCurrency = !event.data.currency || event.data.currency === "NGN";
+
+    if (order && order.status === "pending_payment" && referenceMatches &&
+        Number.isFinite(paidAmountKobo) && paidAmountKobo === expectedAmountKobo && validCurrency) {
       const now = new Date();
       const autoRelease = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
 

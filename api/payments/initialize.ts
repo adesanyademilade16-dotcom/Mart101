@@ -92,8 +92,11 @@ export default async function handler(req: any, res: any) {
   });
 
   const paystackData = await paystackRes.json();
-  if (!paystackData.status) {
-    return res.status(500).json({ error: "Paystack initialization failed" });
+  if (!paystackData.status || !paystackData.data?.authorization_url) {
+    // The payment session was not created, so do not leave a dead pending order
+    // that blocks the buyer from trying again. This does not touch RLS policies.
+    await supabase.from("orders").delete().eq("id", order.id).eq("status", "pending_payment");
+    return res.status(502).json({ error: "Paystack initialization failed" });
   }
 
   await supabase.from("orders").update({ paystack_reference: order.id }).eq("id", order.id);
