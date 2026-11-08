@@ -19,7 +19,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import ConfirmModal from "@/components/ConfirmModal";
 import { sanitizeError } from "@/lib/errors";
-import { fetchStockAvailability } from "@/lib/stockAvailability";
 
 /* ───────── Types ───────── */
 
@@ -34,8 +33,6 @@ interface AdminProduct {
   delivery_timeframe: string | null;
   stock_quantity?: number | null;
   quantity_sold?: number | null;
-  quantity_reserved?: number;
-  quantity_available?: number | null;
   image_url: string | null;
   seller_id: string;
   seller_name?: string;
@@ -84,12 +81,21 @@ interface AdminOrder {
   seller_id: string;
   item_amount: number;
   total_paid: number | null;
-  seller_payout?: number | null;
   status: string;
   paystack_reference: string | null;
   created_at: string | null;
   paid_at: string | null;
   proof_image_url?: string | null;
+  product_snapshot?: {
+    name?: string;
+    description?: string;
+    image_url?: string | null;
+    price?: number | null;
+    category?: string;
+    condition?: string;
+    payment_type?: string;
+    delivery_timeframe?: string | null;
+  } | null;
 }
 
 interface ActivityRow {
@@ -115,6 +121,8 @@ type ConfirmAction =
   | { type: "reject_payment"; sellerId: string; sellerName: string };
 
 /* ───────── Constants ───────── */
+
+const ORDERS_PAGE_SIZE = 25;
 
 const CONDITION_COLORS: Record<string, string> = {
   "Brand New": "hsl(142, 71%, 45%)",
@@ -156,6 +164,13 @@ const AdminDashboard = () => {
   const [adminName, setAdminName] = useState("Admin");
   const [adminUserId, setAdminUserId] = useState("");
   const [totalUsers, setTotalUsers] = useState(0);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [ordersTotalCount, setOrdersTotalCount] = useState(0);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [orderSearch, setOrderSearch] = useState("");
+  const [orderStatusFilter, setOrderStatusFilter] = useState("All");
+  const [orderPage, setOrderPage] = useState(0);
+  const [orderRefreshKey, setOrderRefreshKey] = useState(0);
   const [conditionData, setConditionData] = useState<{ name: string; value: number }[]>([]);
   const [paymentFilter, setPaymentFilter] = useState("All");
   const [reportTypeFilter, setReportTypeFilter] = useState("All");
@@ -198,15 +213,15 @@ const AdminDashboard = () => {
         { data: profilesData, count: usersCount },
         { data: reportsData },
         { data: logData },
-        { data: ordersData },
+        { count: ordersCount },
       ] = await Promise.all([
         supabase.from("products").select("*").order("flagged", { ascending: false }).order("created_at", { ascending: false }),
         supabase.from("profiles").select("*", { count: "exact" }),
         supabase.from("product_reports").select("*").order("created_at", { ascending: false }),
         supabase.from("admin_activity_log").select("*").order("created_at", { ascending: false }).limit(100),
-        supabase.from("orders").select("id,product_id,product_name,product_image_url,buyer_id,seller_id,item_amount,total_paid,seller_payout,status,paystack_reference,created_at,paid_at,proof_image_url").order("created_at", { ascending: false }).limit(500),
+        supabase.from("orders").select("id", { count: "exact", head: true }),
       ]);
-      setOrders((ordersData || []) as AdminOrder[]);
+      setTotalOrders(ordersCount ?? 0);
 
       setTotalUsers(usersCount ?? 0);
       setActivityLog((logData || []) as ActivityRow[]);
@@ -220,11 +235,8 @@ const AdminDashboard = () => {
         productsData.forEach((p) => { condMap[p.condition] = (condMap[p.condition] || 0) + 1; });
         setConditionData(Object.entries(condMap).map(([name, value]) => ({ name, value })));
 
-        let stockMap: Record<string, { quantity_reserved: number; quantity_available: number | null }> = {};
-        try { stockMap = await fetchStockAvailability(productsData.map((product) => product.id)); } catch { /* Admin can still inspect core product data. */ }
         setProducts(
           productsData.map((p) => ({
-            ...stockMap[p.id],
             ...p,
             seller_name: profileMap.get(p.seller_id)?.full_name || "Unknown",
             seller_verified: profileMap.get(p.seller_id)?.verified ?? false,
@@ -280,6 +292,53 @@ const AdminDashboard = () => {
     };
     fetchAll();
   }, [isAdmin]);
+
+  // Load purchase records independently so the admin can search and page through
+  // the full order history instead of being limited to the newest 500 rows.
+  useEffect(() => {
+    if (!isAdmin) return;
+    let cancelled = false;
+
+    const loadOrders = async () => {
+      setOrdersLoading(true);
+      const rawTerm = orderSearch.trim().slice(0, 120);
+      // Remove PostgREST filter delimiters before placing user input in an .or() filter.
+      const term = rawTerm.replace(/[,%()\\]/g, " ").replace(/\s+/g, " ").trim();
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(term);
+
+      let query = supabase
+        .from("orders")
+        .select("id,product_id,product_name,product_image_url,buyer_id,seller_id,item_amount,total_paid,status,paystack_reference,created_at,paid_at,proof_image_url,product_snapshot", { count: "exact" })
+        .order("created_at", { ascending: false });
+
+      if (orderStatusFilter !== "All") query = query.eq("status", orderStatusFilter);
+      if (term) {
+        if (isUuid) {
+          query = query.or(`id.eq.${term},buyer_id.eq.${term},seller_id.eq.${term},product_name.ilike.%${term}%,paystack_reference.ilike.%${term}%`);
+        } else {
+          query = query.or(`product_name.ilike.%${term}%,paystack_reference.ilike.%${term}%`);
+        }
+      }
+
+      const from = orderPage * ORDERS_PAGE_SIZE;
+      const { data, count, error } = await query.range(from, from + ORDERS_PAGE_SIZE - 1);
+      if (cancelled) return;
+
+      if (error) {
+        console.error("Admin orders query failed:", error);
+        toast({ title: "Could not load purchases", description: sanitizeError(error), variant: "destructive" });
+        setOrders([]);
+        setOrdersTotalCount(0);
+      } else {
+        setOrders((data || []) as AdminOrder[]);
+        setOrdersTotalCount(count ?? 0);
+      }
+      setOrdersLoading(false);
+    };
+
+    loadOrders();
+    return () => { cancelled = true; };
+  }, [isAdmin, orderSearch, orderStatusFilter, orderPage, orderRefreshKey, toast]);
 
   /* ───────── Actions ───────── */
 
@@ -547,6 +606,12 @@ const AdminDashboard = () => {
 
           {/* ═══ OVERVIEW TAB ═══ */}
           <TabsContent value="overview" className="space-y-6">
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Registered users</p><p className="text-2xl font-bold mt-1">{totalUsers.toLocaleString()}</p><p className="text-xs text-muted-foreground mt-1">All student accounts</p></CardContent></Card>
+              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Total listings</p><p className="text-2xl font-bold mt-1">{products.length.toLocaleString()}</p><p className="text-xs text-muted-foreground mt-1">Products currently listed</p></CardContent></Card>
+              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">All purchases</p><p className="text-2xl font-bold mt-1">{totalOrders.toLocaleString()}</p><p className="text-xs text-muted-foreground mt-1">Recorded order count</p></CardContent></Card>
+              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Pending reports</p><p className="text-2xl font-bold mt-1">{pendingReports.length.toLocaleString()}</p><p className="text-xs text-muted-foreground mt-1">Require admin review</p></CardContent></Card>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card>
                 <CardHeader className="pb-2"><CardTitle className="text-lg">Users vs Listings</CardTitle></CardHeader>
@@ -614,7 +679,7 @@ const AdminDashboard = () => {
                       <th className="py-3 px-2 font-semibold text-foreground hidden sm:table-cell">Seller</th>
                       <th className="py-3 px-2 font-semibold text-foreground hidden md:table-cell">Category</th>
                       <th className="py-3 px-2 font-semibold text-foreground">Price</th>
-                      <th className="py-3 px-2 font-semibold text-foreground hidden lg:table-cell">Inventory (sold / reserved / available)</th>
+                      <th className="py-3 px-2 font-semibold text-foreground hidden lg:table-cell">Stock (sold / left)</th>
                       <th className="py-3 px-2 font-semibold text-foreground text-right">Actions</th>
                     </tr>
                   </thead>
@@ -636,7 +701,7 @@ const AdminDashboard = () => {
                         </td>
                         <td className="py-3 px-2 hidden md:table-cell text-muted-foreground">{product.category}</td>
                         <td className="py-3 px-2 font-semibold text-secondary">₦{Number(product.price).toLocaleString()}</td>
-                        <td className="py-3 px-2 hidden lg:table-cell text-xs text-muted-foreground">{product.stock_quantity == null ? "Not set" : product.quantity_available === -1 ? "Stock check unavailable" : `${Number(product.quantity_sold || 0)} sold / ${Number(product.quantity_reserved || 0)} reserved / ${product.quantity_available ?? "—"} available`}<br />Delivery: {product.delivery_timeframe || "Not set"}</td>
+                        <td className="py-3 px-2 hidden lg:table-cell text-xs text-muted-foreground">{product.stock_quantity == null ? "Not set" : `${Number(product.quantity_sold || 0)} sold / ${Math.max(0, Number(product.stock_quantity) - Number(product.quantity_sold || 0))} left`}<br />Delivery: {product.delivery_timeframe || "Not set"}</td>
                         <td className="py-3 px-2">
                           <div className="flex items-center justify-end gap-1">
                             {product.flagged && (
@@ -904,12 +969,44 @@ const AdminDashboard = () => {
 
           {/* ═══ PURCHASE MONITORING TAB ═══ */}
           <TabsContent value="orders" className="space-y-4">
-            <div>
-              <h2 className="text-xl font-bold text-foreground">Purchase Monitoring</h2>
-              <p className="text-sm text-muted-foreground">Orders are retained here even when a product listing is no longer available.</p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-foreground">Purchase Monitoring</h2>
+                <p className="text-sm text-muted-foreground">Search the complete order history, including purchases whose listings were later edited or deleted.</p>
+                <p className="text-xs text-muted-foreground mt-1">{ordersTotalCount.toLocaleString()} matching purchase{ordersTotalCount === 1 ? "" : "s"}</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setOrderRefreshKey((value) => value + 1)} disabled={ordersLoading}>
+                <Activity className={`w-4 h-4 mr-2 ${ordersLoading ? "animate-pulse" : ""}`} /> Refresh
+              </Button>
             </div>
-            {orders.length === 0 ? (
-              <p className="text-center text-muted-foreground py-10">No orders found. If you expected orders here, check the orders query and admin RLS access.</p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_220px] gap-2">
+              <input
+                value={orderSearch}
+                onChange={(event) => { setOrderSearch(event.target.value); setOrderPage(0); }}
+                placeholder="Search product name, Paystack reference, or exact order / user ID"
+                aria-label="Search purchases"
+                className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+              <Select value={orderStatusFilter} onValueChange={(value) => { setOrderStatusFilter(value); setOrderPage(0); }}>
+                <SelectTrigger className="h-10"><SelectValue placeholder="Filter by status" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All">All statuses</SelectItem>
+                  <SelectItem value="pending_payment">Pending payment</SelectItem>
+                  <SelectItem value="paid_held">Payment held</SelectItem>
+                  <SelectItem value="released">Buyer confirmed</SelectItem>
+                  <SelectItem value="disputed">Disputed</SelectItem>
+                  <SelectItem value="failed">Failed</SelectItem>
+                  <SelectItem value="abandoned">Abandoned</SelectItem>
+                  <SelectItem value="refunded">Refunded</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {ordersLoading ? (
+              <div className="py-12 text-center text-sm text-muted-foreground">Loading purchase records…</div>
+            ) : orders.length === 0 ? (
+              <p className="text-center text-muted-foreground py-10">{orderSearch || orderStatusFilter !== "All" ? "No purchases match your search or filter." : "No purchases found. If you expected orders here, check the orders query and admin RLS access."}</p>
             ) : (
               <div className="overflow-x-auto rounded-xl border border-border">
                 <table className="w-full text-sm">
@@ -920,12 +1017,21 @@ const AdminDashboard = () => {
                     {orders.map((order) => {
                       const buyer = sellers.find((person) => person.user_id === order.buyer_id);
                       const seller = sellers.find((person) => person.user_id === order.seller_id);
+                      const snapshot = order.product_snapshot;
+                      const snapshotName = snapshot?.name || order.product_name || "Deleted / unnamed listing";
+                      const snapshotImage = snapshot?.image_url || order.product_image_url;
                       return (
                         <tr key={order.id} className="border-b border-border/60 align-top">
-                          <td className="p-3 min-w-48"><p className="font-medium">{order.product_name || "Deleted / unnamed listing"}</p><p className="text-xs text-muted-foreground break-all">Order {order.id}</p><p className="text-xs text-muted-foreground">Product ID: {order.product_id || "Listing removed"}</p></td>
-                          <td className="p-3 min-w-32"><p>{buyer?.full_name || "Buyer profile unavailable"}</p><p className="text-xs text-muted-foreground break-all">{order.buyer_id}</p></td>
-                          <td className="p-3 min-w-44"><p>{seller?.full_name || "Seller profile unavailable"}</p><p className="text-xs text-muted-foreground break-all">{order.seller_id}</p>{seller?.bank_name || seller?.account_number || seller?.account_name ? <div className="mt-2 rounded-md bg-muted/50 p-2 text-xs space-y-0.5"><p className="font-medium">Seller payout destination</p><p>{seller.bank_name || "Bank not provided"}</p><p className="break-all">{seller.account_number || "Account number missing"}</p><p>{seller.account_name || "Account name missing"}</p></div> : <p className="text-xs text-amber-600 mt-1">Bank details not provided</p>}</td>
-                          <td className="p-3 whitespace-nowrap"><p>Buyer paid: ₦{Number(order.total_paid ?? order.item_amount).toLocaleString()}</p><p className="text-xs text-muted-foreground">Item: ₦{Number(order.item_amount).toLocaleString()}</p><p className="text-xs font-medium text-secondary mt-1">Seller payout (manual): ₦{Number(order.seller_payout ?? order.item_amount).toLocaleString()}</p></td>
+                          <td className="p-3 min-w-52">
+                            <div className="flex items-start gap-2">
+                              {snapshotImage && <img src={snapshotImage} alt="Purchased product" className="h-12 w-12 rounded-md object-cover border border-border shrink-0" />}
+                              <div className="min-w-0"><p className="font-medium">{snapshotName}</p><p className="text-xs text-muted-foreground break-all">Order {order.id}</p><p className="text-xs text-muted-foreground">Product ID: {order.product_id || "Listing removed"}</p></div>
+                            </div>
+                            {snapshot && <details className="mt-2 text-xs"><summary className="cursor-pointer text-secondary">View purchased item details</summary><div className="mt-2 rounded-md bg-muted/40 p-2 space-y-1"><p><span className="font-medium">Original price:</span> ₦{Number(snapshot.price ?? order.item_amount).toLocaleString()}</p>{snapshot.category && <p><span className="font-medium">Category:</span> {snapshot.category}</p>}{snapshot.condition && <p><span className="font-medium">Condition:</span> {snapshot.condition}</p>}{snapshot.payment_type && <p><span className="font-medium">Payment type:</span> {snapshot.payment_type}</p>}{snapshot.delivery_timeframe && <p><span className="font-medium">Delivery:</span> {snapshot.delivery_timeframe}</p>}{snapshot.description && <p className="pt-1 whitespace-pre-wrap break-words">{snapshot.description}</p>}</div></details>}
+                          </td>
+                          <td className="p-3 min-w-36"><p>{buyer?.full_name || "Buyer profile unavailable"}</p>{buyer?.email && <p className="text-xs text-muted-foreground break-all">{buyer.email}</p>}<p className="text-xs text-muted-foreground break-all">{order.buyer_id}</p></td>
+                          <td className="p-3 min-w-44"><p>{seller?.full_name || "Seller profile unavailable"}</p>{seller?.email && <p className="text-xs text-muted-foreground break-all">{seller.email}</p>}<p className="text-xs text-muted-foreground break-all">{order.seller_id}</p>{seller?.bank_name || seller?.account_number || seller?.account_name ? <div className="mt-2 rounded-md bg-muted/50 p-2 text-xs space-y-0.5"><p className="font-medium">Seller payout destination</p><p>{seller.bank_name || "Bank not provided"}</p><p className="break-all">{seller.account_number || "Account number missing"}</p><p>{seller.account_name || "Account name missing"}</p></div> : <p className="text-xs text-amber-600 mt-1">Bank details not provided</p>}</td>
+                          <td className="p-3 whitespace-nowrap"><p>Buyer paid: ₦{Number(order.total_paid ?? order.item_amount).toLocaleString()}</p><p className="text-xs text-muted-foreground">Item: ₦{Number(order.item_amount).toLocaleString()}</p></td>
                           <td className="p-3 min-w-36"><Badge variant={order.status === "paid_held" || order.status === "released" ? "default" : order.status === "disputed" ? "destructive" : "secondary"}>{order.status === "released" ? "buyer confirmed · payout due" : order.status.replaceAll("_", " ")}</Badge>{order.paystack_reference && <p className="text-xs text-muted-foreground mt-1 break-all">Ref: {order.paystack_reference}</p>}</td>
                           <td className="p-3 min-w-28">{order.proof_image_url ? <a href={order.proof_image_url} target="_blank" rel="noreferrer" className="inline-flex flex-col gap-1 text-secondary hover:underline"><img src={order.proof_image_url} alt="Buyer proof of receipt" className="h-16 w-16 rounded-md object-cover border border-border"/><span className="text-xs">View photo</span></a> : <span className="text-xs text-muted-foreground">Not uploaded</span>}</td>
                           <td className="p-3 whitespace-nowrap text-xs">{order.created_at ? new Date(order.created_at).toLocaleString() : "—"}<p className="text-muted-foreground">{order.paid_at ? `Paid ${new Date(order.paid_at).toLocaleString()}` : "Not marked paid"}</p></td>
@@ -936,6 +1042,15 @@ const AdminDashboard = () => {
                 </table>
               </div>
             )}
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-muted-foreground">Showing {ordersTotalCount === 0 ? 0 : orderPage * ORDERS_PAGE_SIZE + 1}–{Math.min((orderPage + 1) * ORDERS_PAGE_SIZE, ordersTotalCount)} of {ordersTotalCount.toLocaleString()}</p>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" disabled={orderPage === 0 || ordersLoading} onClick={() => setOrderPage((page) => Math.max(0, page - 1))}>Previous</Button>
+                <span className="text-xs text-muted-foreground">Page {orderPage + 1} of {Math.max(1, Math.ceil(ordersTotalCount / ORDERS_PAGE_SIZE))}</span>
+                <Button variant="outline" size="sm" disabled={(orderPage + 1) * ORDERS_PAGE_SIZE >= ordersTotalCount || ordersLoading} onClick={() => setOrderPage((page) => page + 1)}>Next</Button>
+              </div>
+            </div>
           </TabsContent>
 
           {/* ═══ ACTIVITY LOG TAB ═══ */}
