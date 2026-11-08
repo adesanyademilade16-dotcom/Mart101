@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import BrandLogo from "@/components/BrandLogo";
 import { useToast } from "@/hooks/use-toast";
 import ConfirmModal from "@/components/ConfirmModal";
+import DisputeThread from "@/components/DisputeThread";
 
 const CLOUDINARY_CLOUD_NAME = "oxt5nzu7";
 const CLOUDINARY_UPLOAD_PRESET = "mart101_avatars";
@@ -212,7 +213,7 @@ const MyPurchases = () => {
                     {order.status === "pending_payment" && (order.checkoutFailed ? <span className="text-xs font-medium bg-destructive/10 text-destructive px-2 py-1 rounded-full">Payment failed · You can try again</span> : <span className="text-xs font-medium bg-amber-500/10 text-amber-600 px-2 py-1 rounded-full">Payment awaiting confirmation</span>)}
                     {order.status === "paid_held" && <span className="text-xs font-medium bg-blue-500/10 text-blue-600 px-2 py-1 rounded-full">Delivery in progress</span>}
                     {order.status === "released" && <span className="text-xs font-medium bg-emerald-500/10 text-emerald-600 px-2 py-1 rounded-full">Receipt confirmed · payout pending</span>}
-                    {order.status === "disputed" && <span className="text-xs font-medium bg-amber-500/10 text-amber-600 px-2 py-1 rounded-full">Refund requested</span>}
+                    {order.status === "disputed" && <span className="text-xs font-medium bg-amber-500/10 text-amber-600 px-2 py-1 rounded-full">Dispute reported</span>}
                     {order.status === "refunded" && <span className="text-xs font-medium bg-muted text-muted-foreground px-2 py-1 rounded-full">Refunded</span>}
                   </div>
                 </div>
@@ -244,8 +245,13 @@ const MyPurchases = () => {
                   </div>
                 )}
 
-                {order.status === "disputed" && order.dispute_reason && (
-                  <p className="mt-3 text-xs text-muted-foreground border-t border-border pt-3">Your note: "{order.dispute_reason}"</p>
+                {order.status === "disputed" && (
+                  <>
+                    {order.dispute_reason && (
+                      <p className="mt-3 text-xs text-muted-foreground border-t border-border pt-3">Your note: "{order.dispute_reason}"</p>
+                    )}
+                    <DisputeThread orderId={order.id} mode="buyer" />
+                  </>
                 )}
               </div>
             ))}

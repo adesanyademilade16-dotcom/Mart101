@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import ConfirmModal from "@/components/ConfirmModal";
+import DisputeThread from "@/components/DisputeThread";
 import { sanitizeError } from "@/lib/errors";
 
 /* ───────── Types ───────── */
@@ -106,6 +107,19 @@ interface ActivityRow {
   created_at: string;
 }
 
+interface AdminDispute {
+  id: string;
+  order_id: string;
+  buyer_id: string;
+  seller_id: string;
+  product_name: string | null;
+  total_paid: number | null;
+  reason: string;
+  status: "open" | "under_review" | "resolved";
+  resolution: string | null;
+  created_at: string;
+}
+
 type ConfirmAction =
   | { type: "delete"; productId: string; productName: string }
   | { type: "suspend"; sellerId: string; sellerName: string }
@@ -159,6 +173,9 @@ const AdminDashboard = () => {
   const [reports, setReports] = useState<ReportRow[]>([]);
   const [activityLog, setActivityLog] = useState<ActivityRow[]>([]);
   const [orders, setOrders] = useState<AdminOrder[]>([]);
+  const [disputes, setDisputes] = useState<AdminDispute[]>([]);
+  const [disputesLoading, setDisputesLoading] = useState(false);
+  const [disputeRefreshKey, setDisputeRefreshKey] = useState(0);
   const [loading, setLoading] = useState(true);
   const [confirm, setConfirm] = useState<ConfirmAction | null>(null);
   const [adminName, setAdminName] = useState("Admin");
@@ -339,6 +356,28 @@ const AdminDashboard = () => {
     loadOrders();
     return () => { cancelled = true; };
   }, [isAdmin, orderSearch, orderStatusFilter, orderPage, orderRefreshKey, toast]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    let cancelled = false;
+    const loadDisputes = async () => {
+      setDisputesLoading(true);
+      const { data, error } = await supabase
+        .from("order_disputes")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (cancelled) return;
+      if (error) {
+        toast({ title: "Could not load disputes", description: sanitizeError(error), variant: "destructive" });
+        setDisputes([]);
+      } else {
+        setDisputes((data || []) as AdminDispute[]);
+      }
+      setDisputesLoading(false);
+    };
+    loadDisputes();
+    return () => { cancelled = true; };
+  }, [isAdmin, disputeRefreshKey, toast]);
 
   /* ───────── Actions ───────── */
 
@@ -572,7 +611,7 @@ const AdminDashboard = () => {
         <p className="text-muted-foreground mb-6">Admin Control Panel</p>
 
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 h-auto">
+          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-7 h-auto">
             <TabsTrigger value="overview" className="flex items-center gap-1.5 text-xs sm:text-sm py-2">
               <ShoppingBag className="w-4 h-4" /> Overview
             </TabsTrigger>
@@ -598,6 +637,10 @@ const AdminDashboard = () => {
             <TabsTrigger value="orders" className="flex items-center gap-1.5 text-xs sm:text-sm py-2">
               <ClipboardList className="w-4 h-4" /> Purchases
               {orders.length > 0 && <span className="ml-1 rounded-full bg-secondary text-secondary-foreground px-1.5 text-[10px]">{orders.length > 99 ? "99+" : orders.length}</span>}
+            </TabsTrigger>
+            <TabsTrigger value="disputes" className="flex items-center gap-1.5 text-xs sm:text-sm py-2 relative">
+              <AlertTriangle className="w-4 h-4" /> Disputes
+              {disputes.filter((item) => item.status !== "resolved").length > 0 && <span className="ml-1 rounded-full bg-destructive text-destructive-foreground px-1.5 text-[10px]">{disputes.filter((item) => item.status !== "resolved").length}</span>}
             </TabsTrigger>
             <TabsTrigger value="activity" className="flex items-center gap-1.5 text-xs sm:text-sm py-2">
               <Activity className="w-4 h-4" /> Log
@@ -1051,6 +1094,49 @@ const AdminDashboard = () => {
                 <Button variant="outline" size="sm" disabled={(orderPage + 1) * ORDERS_PAGE_SIZE >= ordersTotalCount || ordersLoading} onClick={() => setOrderPage((page) => page + 1)}>Next</Button>
               </div>
             </div>
+          </TabsContent>
+
+          {/* ═══ DISPUTE MANAGEMENT TAB ═══ */}
+          <TabsContent value="disputes" className="space-y-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-foreground">Dispute Management</h2>
+                <p className="text-sm text-muted-foreground">Review buyer reports, seller responses and evidence before recording a decision.</p>
+                <p className="text-xs text-muted-foreground mt-1">{disputes.filter((item) => item.status !== "resolved").length} unresolved · {disputes.length} total cases</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setDisputeRefreshKey((value) => value + 1)} disabled={disputesLoading}>
+                <Activity className={`w-4 h-4 mr-2 ${disputesLoading ? "animate-pulse" : ""}`} /> Refresh disputes
+              </Button>
+            </div>
+            {disputesLoading ? (
+              <div className="py-10 text-center text-sm text-muted-foreground">Loading dispute cases…</div>
+            ) : disputes.length === 0 ? (
+              <div className="rounded-xl border border-border p-8 text-center text-sm text-muted-foreground">No dispute cases have been reported.</div>
+            ) : (
+              <div className="space-y-4">
+                {disputes.map((dispute) => {
+                  const buyer = sellers.find((person) => person.user_id === dispute.buyer_id);
+                  const seller = sellers.find((person) => person.user_id === dispute.seller_id);
+                  return (
+                    <Card key={dispute.id}>
+                      <CardContent className="p-4 space-y-3">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <h3 className="font-semibold">{dispute.product_name || "Purchase dispute"}</h3>
+                            <p className="text-xs text-muted-foreground break-all">Order: {dispute.order_id}</p>
+                            <p className="text-xs text-muted-foreground mt-1">Buyer: {buyer?.full_name || dispute.buyer_id} · Seller: {seller?.full_name || dispute.seller_id}</p>
+                            <p className="text-sm font-medium mt-2">Amount: ₦{Number(dispute.total_paid || 0).toLocaleString()}</p>
+                          </div>
+                          <Badge variant={dispute.status === "resolved" ? "default" : dispute.status === "under_review" ? "secondary" : "destructive"}>{dispute.status.replaceAll("_", " ")}</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">Reported {new Date(dispute.created_at).toLocaleString()}</p>
+                        <DisputeThread orderId={dispute.order_id} mode="admin" />
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
           </TabsContent>
 
           {/* ═══ ACTIVITY LOG TAB ═══ */}

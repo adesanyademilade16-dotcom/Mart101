@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { ShoppingBag, Plus, Trash2, Upload, AlertTriangle, CalendarDays, Package, ShieldCheck, BadgeCheck, Clock, Pencil } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import ConfirmModal from "@/components/ConfirmModal";
+import DisputeThread from "@/components/DisputeThread";
 import ConditionBadge from "@/components/ConditionBadge";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { supabase } from "@/integrations/supabase/client";
@@ -73,6 +74,7 @@ const Dashboard = () => {
   const [uploading, setUploading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [sellerOrders, setSellerOrders] = useState<Array<{ id: string; product_name: string; status: string; total_paid: number }>>([]);
+  const [sellerDisputes, setSellerDisputes] = useState<Array<{ id: string; order_id: string; product_name: string | null; total_paid: number | null; reason: string; status: string }>>([]);
 
   const [newProduct, setNewProduct] = useState({ name: "", price: "", description: "", category: "", condition: "", defectsDescription: "", paymentType: "", deliveryTimeframe: "", stockQuantity: "1" });
   const [stockDrafts, setStockDrafts] = useState<Record<string, string>>({});
@@ -120,6 +122,13 @@ const Dashboard = () => {
       if (ordersData) {
         setSellerOrders(ordersData);
       }
+
+      const { data: disputeData, error: disputeLoadError } = await supabase
+        .from("order_disputes")
+        .select("id, order_id, product_name, total_paid, reason, status")
+        .eq("seller_id", session.user.id)
+        .order("created_at", { ascending: false });
+      if (!disputeLoadError && disputeData) setSellerDisputes(disputeData);
 
       // OAuth users (e.g. Google) won't have WhatsApp/department/level yet — send them to onboarding.
       if (
@@ -592,29 +601,55 @@ const Dashboard = () => {
             </h3>
             <div className="space-y-3">
               {sellerOrders.map((order) => (
-                <div key={order.id} className="flex items-center justify-between gap-3 border-t border-border/50 pt-3 first:border-t-0 first:pt-0">
-                  <div className="min-w-0">
-                    <p className="font-medium text-foreground text-sm truncate">{order.product_name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {order.status === "paid_held"
-                        ? "Waiting for buyer to confirm receipt — funds remain held"
-                        : order.status === "released"
-                        ? "Buyer confirmed — awaiting manual seller payout"
-                        : order.status === "disputed"
-                        ? "Buyer reported an issue"
-                        : "Payment pending"}
-                    </p>
+                <div key={order.id} className="border-t border-border/50 pt-3 first:border-t-0 first:pt-0">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-medium text-foreground text-sm truncate">{order.product_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {order.status === "paid_held"
+                          ? "Waiting for buyer to confirm receipt — funds remain held"
+                          : order.status === "released"
+                          ? "Buyer confirmed — awaiting manual seller payout"
+                          : order.status === "disputed"
+                          ? "Buyer reported an issue — respond in the dispute below"
+                          : "Payment pending"}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {order.status === "paid_held" && <Clock className="w-4 h-4 text-blue-500" />}
+                      <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                        order.status === "released" ? "bg-emerald-500/10 text-emerald-600" :
+                        order.status === "disputed" ? "bg-amber-500/10 text-amber-600" :
+                        "bg-blue-500/10 text-blue-600"
+                      }`}>
+                        ₦{Number(order.total_paid).toLocaleString()}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {order.status === "paid_held" && <Clock className="w-4 h-4 text-blue-500" />}
-                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-                      order.status === "released" ? "bg-emerald-500/10 text-emerald-600" :
-                      order.status === "disputed" ? "bg-amber-500/10 text-amber-600" :
-                      "bg-blue-500/10 text-blue-600"
-                    }`}>
-                      ₦{Number(order.total_paid).toLocaleString()}
-                    </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {sellerDisputes.length > 0 && (
+          <div className="glass-card p-5 mb-6">
+            <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500" /> Dispute Cases
+            </h3>
+            <p className="text-xs text-muted-foreground mb-4">Respond to the buyer's report and provide any evidence. Funds remain held while the case is unresolved.</p>
+            <div className="space-y-4">
+              {sellerDisputes.map((dispute) => (
+                <div key={dispute.id} className="border-t border-border/50 pt-3 first:border-t-0 first:pt-0">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm">{dispute.product_name || "Purchase dispute"}</p>
+                      <p className="text-xs text-muted-foreground break-all">Order: {dispute.order_id}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Amount: ₦{Number(dispute.total_paid || 0).toLocaleString()}</p>
+                    </div>
+                    <span className={`rounded-full px-2 py-1 text-[11px] font-medium ${dispute.status === "resolved" ? "bg-emerald-500/10 text-emerald-600" : dispute.status === "under_review" ? "bg-blue-500/10 text-blue-600" : "bg-amber-500/10 text-amber-600"}`}>{dispute.status.replaceAll("_", " ")}</span>
                   </div>
+                  <DisputeThread orderId={dispute.order_id} mode="seller" />
                 </div>
               ))}
             </div>
