@@ -33,10 +33,10 @@ export default async function handler(req: any, res: any) {
 
   const event = JSON.parse(rawBody);
 
-  if (event.event === "charge.success") {
-    const reference = event.data.reference; // this is our order's id
-    const supabase = createClient(SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  const supabase = createClient(SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  const reference = event?.data?.reference;
 
+  if (event.event === "charge.success" && reference) {
     const { data: order } = await supabase
       .from("orders")
       .select("id, status, total_paid, paystack_reference")
@@ -46,21 +46,61 @@ export default async function handler(req: any, res: any) {
     const paidAmountKobo = Number(event.data.amount);
     const expectedAmountKobo = order ? Math.round(Number(order.total_paid) * 100) : -1;
     const referenceMatches = !!order && (order.paystack_reference || order.id) === reference;
-    const validCurrency = !event.data.currency || event.data.currency === "NGN";
+    const validCurrency = event.data.currency === "NGN";
 
-    if (order && order.status === "pending_payment" && referenceMatches &&
-        Number.isFinite(paidAmountKobo) && paidAmountKobo === expectedAmountKobo && validCurrency) {
-      const now = new Date();
-      const autoRelease = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+    if (order && referenceMatches && Number.isFinite(paidAmountKobo) && paidAmountKobo === expectedAmountKobo && validCurrency) {
+      if (order.status === "pending_payment") {
+        const now = new Date();
+        const { data: updated, error: updateError } = await supabase
+          .from("orders")
+          .update({ status: "paid_held", paid_at: now.toISOString() })
+          .eq("id", order.id)
+          .eq("status", "pending_payment")
+          .select("id")
+          .maybeSingle();
+        if (updateError) console.error("[payments/webhook] Could not record successful payment:", updateError.message);
+      }
 
-      await supabase
-        .from("orders")
-        .update({
-          status: "paid_held",
-          paid_at: now.toISOString(),
-          auto_release_at: autoRelease.toISOString(),
-        })
-        .eq("id", order.id);
+      // The database function checks the final order status and counts each order once.
+      const { data: stockConfirmed, error: stockError } = await supabase.rpc(
+        "confirm_product_stock_sale",
+        { p_order_id: order.id }
+      );
+      if (stockError || stockConfirmed !== true) {
+        console.error("[payments/webhook] Payment confirmed but stock needs admin review:", {
+          orderId: order.id,
+          message: stockError?.message || "Stock reservation expired or unavailable",
+        });
+      }
+    }
+  }
+
+  if ((event.event === "charge.failed" || event.event === "transaction.failed") && reference) {
+    const { data: failedOrder } = await supabase
+      .from("orders")
+      .select("id,status,paystack_reference")
+      .eq("id", reference)
+      .maybeSingle();
+
+    // A signed failure event is useful, but verify Paystack's current transaction
+    // state before releasing inventory in case events arrive late or out of order.
+    if (failedOrder?.status === "pending_payment" && process.env.PAYSTACK_SECRET_KEY) {
+      try {
+        const verifyRes = await fetch(
+          `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`,
+          { headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`, Accept: "application/json" } }
+        );
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json();
+          const tx = verifyData?.data;
+          const referenceMatches = tx?.reference === (failedOrder.paystack_reference || failedOrder.id);
+          if (verifyData?.status && referenceMatches && (tx.status === "failed" || tx.status === "abandoned")) {
+            await supabase.rpc("release_product_stock_reservation", { p_order_id: failedOrder.id });
+          }
+        }
+      } catch (error: any) {
+        console.error("[payments/webhook] Failed transaction recheck deferred:", error?.message || "Unknown error");
+      }
     }
   }
 

@@ -4,8 +4,6 @@ import { createClient } from "@supabase/supabase-js";
 const SUPABASE_URL =
   "https://ututplfwuwwkbcrrjydw.supabase.co";
 
-const AUTO_RELEASE_DAYS = 3;
-
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -85,7 +83,7 @@ export default async function handler(req: any, res: any) {
     const { data: order, error: orderError } = await supabase
       .from("orders")
       .select(
-        "id,buyer_id,status,total_paid,paystack_reference,paid_at,auto_release_at"
+        "id,buyer_id,status,total_paid,paystack_reference,paid_at"
       )
       .eq("id", orderId)
       .eq("buyer_id", user.id)
@@ -108,11 +106,15 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    // Make retries safe for orders already confirmed.
+    // Make retries safe for orders already confirmed. Stock confirmation is
+    // idempotent, so a retry can finish it if a previous request stopped midway.
     if (order.status !== "pending_payment") {
-      return res.status(200).json({
-        status: order.status,
-      });
+      const { data: stockConfirmed, error: stockError } = await supabase.rpc("confirm_product_stock_sale", { p_order_id: order.id });
+      if (stockError || stockConfirmed !== true) {
+        console.error("[payments/verify] Stock confirmation retry needs attention:", stockError?.message || "Stock reservation missing or invalid");
+        return res.status(202).json({ status: order.status, warning: "Payment is recorded. Inventory finalization needs admin review." });
+      }
+      return res.status(200).json({ status: order.status });
     }
 
     const reference = order.paystack_reference || order.id;
@@ -186,18 +188,12 @@ export default async function handler(req: any, res: any) {
     }
 
     const paidAt = new Date();
-    const autoReleaseAt = new Date(
-      paidAt.getTime() +
-        AUTO_RELEASE_DAYS * 24 * 60 * 60 * 1000
-    );
-
     // Attempt the guarded status transition.
     const { data: updated, error: updateError } = await supabase
       .from("orders")
       .update({
         status: "paid_held",
         paid_at: paidAt.toISOString(),
-        auto_release_at: autoReleaseAt.toISOString(),
       })
       .eq("id", order.id)
       .eq("buyer_id", user.id)
@@ -238,9 +234,12 @@ export default async function handler(req: any, res: any) {
       }
 
       if (latestOrder.status !== "pending_payment") {
-        return res.status(200).json({
-          status: latestOrder.status,
-        });
+        const { data: stockConfirmed, error: stockError } = await supabase.rpc("confirm_product_stock_sale", { p_order_id: order.id });
+        if (stockError || stockConfirmed !== true) {
+          console.error("[payments/verify] Concurrent confirmation stock finalization needs attention:", stockError?.message || "Stock reservation missing or invalid");
+          return res.status(202).json({ status: latestOrder.status, warning: "Payment is recorded. Inventory finalization needs admin review." });
+        }
+        return res.status(200).json({ status: latestOrder.status });
       }
 
       return res.status(409).json({
@@ -248,9 +247,22 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    return res.status(200).json({
-      status: updated.status,
-    });
+    const { data: stockConfirmed, error: stockError } = await supabase.rpc(
+      "confirm_product_stock_sale",
+      { p_order_id: order.id }
+    );
+    if (stockError || stockConfirmed !== true) {
+      console.error("[payments/verify] Payment confirmed but stock sale finalization needs attention:", {
+        orderId: order.id,
+        message: stockError?.message || "Stock reservation expired or unavailable",
+      });
+      return res.status(202).json({
+        status: updated.status,
+        warning: "Payment was confirmed. Inventory finalization needs admin review.",
+      });
+    }
+
+    return res.status(200).json({ status: updated.status });
   } catch (error: any) {
     console.error("[payments/verify] Unexpected error:", {
       message:
