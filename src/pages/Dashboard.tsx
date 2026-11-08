@@ -740,8 +740,8 @@ const Dashboard = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
             {products.map((product) => (
-              <div key={product.id} className="glass-card overflow-hidden rounded-2xl">
-                <div className="aspect-[16/10] sm:aspect-[16/9] bg-muted">
+              <div key={product.id} className="glass-card overflow-hidden rounded-xl">
+                <div className="aspect-[16/7] sm:aspect-[16/9] bg-muted">
                   {product.image_url ? (
                     <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" loading="lazy" />
                   ) : (
@@ -750,7 +750,7 @@ const Dashboard = () => {
                     </div>
                   )}
                 </div>
-                <div className="p-5 sm:p-6 space-y-4">
+                <div className="p-4 space-y-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <h3 className="font-semibold text-foreground text-base sm:text-lg break-words">{product.name}</h3>
@@ -782,21 +782,21 @@ const Dashboard = () => {
                       <p className="text-xs sm:text-sm leading-relaxed font-medium text-emerald-600">● Pay Now eligible — delivery within 3 days</p>
                     )}
                     <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">{product.payment_type || "Payment type not set"} · Delivery: {product.delivery_timeframe || "Not set"}</p>
-                    <div className="rounded-2xl border border-border bg-muted/35 p-4 sm:p-5 space-y-4">
+                    <div className="rounded-xl border border-border bg-muted/35 p-3 space-y-3">
                       <div className="flex items-center gap-2">
                         <Package className="h-4 w-4 text-secondary" />
                         <h4 className="text-sm font-semibold text-foreground">Inventory overview</h4>
                       </div>
                       <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                        <div className="rounded-xl bg-background border border-border p-3 min-w-0">
+                        <div className="rounded-lg bg-background border border-border p-2.5 min-w-0">
                           <p className="text-[11px] sm:text-xs text-muted-foreground">Total stock</p>
                           <p className="mt-1 text-lg sm:text-xl font-bold text-foreground tabular-nums break-words">{product.stock_quantity == null ? "—" : Number(product.stock_quantity).toLocaleString()}</p>
                         </div>
-                        <div className="rounded-xl bg-background border border-border p-3 min-w-0">
+                        <div className="rounded-lg bg-background border border-border p-2.5 min-w-0">
                           <p className="text-[11px] sm:text-xs text-muted-foreground">Sold</p>
                           <p className="mt-1 text-lg sm:text-xl font-bold text-foreground tabular-nums">{Number(product.quantity_sold || 0).toLocaleString()}</p>
                         </div>
-                        <div className="rounded-xl bg-background border border-border p-3 min-w-0">
+                        <div className="rounded-lg bg-background border border-border p-2.5 min-w-0">
                           <p className="text-[11px] sm:text-xs text-muted-foreground">Remaining</p>
                           <p className="mt-1 text-lg sm:text-xl font-bold text-emerald-600 tabular-nums break-words">{product.stock_quantity == null ? "—" : Math.max(0, Number(product.stock_quantity) - Number(product.quantity_sold || 0)).toLocaleString()}</p>
                         </div>
@@ -804,12 +804,12 @@ const Dashboard = () => {
                       <div className="space-y-3">
                         <div className="space-y-2">
                           <Label htmlFor={`stock-${product.id}`} className="text-sm font-medium">Total quantity available</Label>
-                          <Input id={`stock-${product.id}`} aria-label={`Stock quantity for ${product.name}`} type="number" inputMode="numeric" min={Number(product.quantity_sold || 0)} max="10000" step="1" className="h-12 rounded-xl bg-background px-4 text-base" value={stockDrafts[product.id] ?? (product.stock_quantity == null ? "" : String(product.stock_quantity))} onChange={(e) => setStockDrafts((current) => ({ ...current, [product.id]: e.target.value }))} placeholder="Enter total stock quantity" />
+                          <Input id={`stock-${product.id}`} aria-label={`Stock quantity for ${product.name}`} type="number" inputMode="numeric" min={Number(product.quantity_sold || 0)} max="10000" step="1" className="h-10 rounded-lg bg-background px-3 text-sm" value={stockDrafts[product.id] ?? (product.stock_quantity == null ? "" : String(product.stock_quantity))} onChange={(e) => setStockDrafts((current) => ({ ...current, [product.id]: e.target.value }))} placeholder="Enter total stock quantity" />
                         </div>
                         <div className="space-y-2">
                           <Label className="text-sm font-medium">Expected delivery duration</Label>
                           <Select value={deliveryDrafts[product.id] ?? product.delivery_timeframe ?? ""} onValueChange={(value) => setDeliveryDrafts((current) => ({ ...current, [product.id]: value }))}>
-                            <SelectTrigger className="h-12 w-full rounded-xl bg-background px-4 text-base"><SelectValue placeholder="Choose delivery time" /></SelectTrigger>
+                            <SelectTrigger className="h-10 w-full rounded-lg bg-background px-3 text-sm"><SelectValue placeholder="Choose delivery time" /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="Same day">Same day</SelectItem>
                               <SelectItem value="1–3 days">1–3 days</SelectItem>
@@ -818,7 +818,7 @@ const Dashboard = () => {
                             </SelectContent>
                           </Select>
                         </div>
-                        <Button type="button" size="lg" variant="outline" className="h-12 w-full rounded-xl text-sm font-semibold" disabled={savingStockId === product.id || ((stockDrafts[product.id] ?? String(product.stock_quantity ?? "")) === String(product.stock_quantity ?? "") && (deliveryDrafts[product.id] ?? product.delivery_timeframe ?? "") === (product.delivery_timeframe ?? ""))} onClick={() => saveStockQuantity(product)}>{savingStockId === product.id ? "Saving changes…" : "Save stock & delivery"}</Button>
+                        <Button type="button" size="lg" variant="outline" className="h-10 w-full rounded-lg text-sm font-semibold" disabled={savingStockId === product.id || ((stockDrafts[product.id] ?? String(product.stock_quantity ?? "")) === String(product.stock_quantity ?? "") && (deliveryDrafts[product.id] ?? product.delivery_timeframe ?? "") === (product.delivery_timeframe ?? ""))} onClick={() => saveStockQuantity(product)}>{savingStockId === product.id ? "Saving changes…" : "Save stock & delivery"}</Button>
                       </div>
                     </div>
                   </div>
