@@ -24,6 +24,11 @@ interface Product {
   image_url: string | null;
   category: string;
   condition: string;
+  payment_type?: string;
+  flagged?: boolean;
+  delivery_timeframe?: string | null;
+  stock_quantity?: number | null;
+  quantity_sold?: number | null;
 }
 
 const MAX_PRICE = 1000000;
@@ -65,9 +70,12 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
-  const [sellerOrders, setSellerOrders] = useState<Array<{ id: string; product_name: string; status: string; total_paid: number; daysLeft: number | null }>>([]);
+  const [sellerOrders, setSellerOrders] = useState<Array<{ id: string; product_name: string; status: string; total_paid: number }>>([]);
 
-  const [newProduct, setNewProduct] = useState({ name: "", price: "", description: "", category: "", condition: "", defectsDescription: "", paymentType: "", deliveryTimeframe: "" });
+  const [newProduct, setNewProduct] = useState({ name: "", price: "", description: "", category: "", condition: "", defectsDescription: "", paymentType: "", deliveryTimeframe: "", stockQuantity: "1" });
+  const [stockDrafts, setStockDrafts] = useState<Record<string, string>>({});
+  const [deliveryDrafts, setDeliveryDrafts] = useState<Record<string, string>>({});
+  const [savingStockId, setSavingStockId] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [extraFiles, setExtraFiles] = useState<File[]>([]);
@@ -97,21 +105,14 @@ const Dashboard = () => {
 
       const { data: ordersData } = await supabase
         .from("orders")
-        .select("id, product_name, status, total_paid, auto_release_at")
+        .select("id, product_name, status, total_paid")
         .eq("seller_id", session.user.id)
         .in("status", ["paid_held", "released", "disputed"])
         .order("created_at", { ascending: false })
         .limit(10);
 
       if (ordersData) {
-        setSellerOrders(
-          ordersData.map((o) => ({
-            ...o,
-            daysLeft: o.auto_release_at
-              ? Math.max(0, Math.ceil((new Date(o.auto_release_at).getTime() - Date.now()) / 86400000))
-              : null,
-          }))
-        );
+        setSellerOrders(ordersData);
       }
 
       // OAuth users (e.g. Google) won't have WhatsApp/department/level yet — send them to onboarding.
@@ -219,6 +220,8 @@ const Dashboard = () => {
     newProduct.category !== "" &&
     newProduct.condition !== "" &&
     newProduct.paymentType !== "" &&
+    newProduct.deliveryTimeframe !== "" &&
+    Number.isInteger(Number(newProduct.stockQuantity)) && Number(newProduct.stockQuantity) >= 1 &&
     newProduct.description.trim().length >= 10 &&
     totalImages >= minImages;
 
@@ -233,6 +236,14 @@ const Dashboard = () => {
     }
     if (totalImages < 1) {
       setImageError("Please upload at least one product image.");
+      hasError = true;
+    }
+    if (!newProduct.deliveryTimeframe) {
+      toast({ title: "Delivery timeframe required", description: "Choose an expected delivery timeframe for this listing.", variant: "destructive" });
+      hasError = true;
+    }
+    if (!Number.isInteger(Number(newProduct.stockQuantity)) || Number(newProduct.stockQuantity) < 1 || Number(newProduct.stockQuantity) > 10000) {
+      toast({ title: "Invalid stock quantity", description: "Enter a whole number between 1 and 10,000.", variant: "destructive" });
       hasError = true;
     }
     if (newProduct.description.trim().length < 10) {
@@ -319,7 +330,9 @@ const Dashboard = () => {
         defects_description: isUsed ? newProduct.defectsDescription || null : null,
         extra_image_urls: extraUrls.length > 0 ? extraUrls : null,
         payment_type: newProduct.paymentType,
-        delivery_timeframe: newProduct.deliveryTimeframe.trim() || null,
+        delivery_timeframe: newProduct.deliveryTimeframe.trim(),
+        stock_quantity: Number(newProduct.stockQuantity),
+        quantity_sold: 0,
       })
       .select()
       .single();
@@ -330,7 +343,7 @@ const Dashboard = () => {
       toast({ title: "Error", description: sanitizeError(error), variant: "destructive" });
     } else {
       setProducts([data, ...products]);
-      setNewProduct({ name: "", price: "", description: "", category: "", condition: "", defectsDescription: "", paymentType: "", deliveryTimeframe: "" });
+      setNewProduct({ name: "", price: "", description: "", category: "", condition: "", defectsDescription: "", paymentType: "", deliveryTimeframe: "", stockQuantity: "1" });
       setSelectedFile(null);
       setPreviewUrl(null);
       setExtraFiles([]);
@@ -354,6 +367,29 @@ const Dashboard = () => {
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [isFormDirty]);
+
+  const saveStockQuantity = async (product: Product) => {
+    const raw = stockDrafts[product.id] ?? String(product.stock_quantity ?? "");
+    const quantity = Number(raw);
+    if (!Number.isInteger(quantity) || quantity < Number(product.quantity_sold || 0) || quantity > 10000) {
+      toast({ title: "Invalid stock quantity", description: `Enter a whole number at least equal to quantity sold (${Number(product.quantity_sold || 0)}).`, variant: "destructive" });
+      return;
+    }
+    setSavingStockId(product.id);
+    const deliveryTimeframe = deliveryDrafts[product.id] ?? product.delivery_timeframe ?? "";
+    if (!deliveryTimeframe) {
+      toast({ title: "Delivery timeframe required", description: "Select the expected delivery time for this listing.", variant: "destructive" });
+      setSavingStockId(null);
+      return;
+    }
+    const { data, error } = await supabase.from("products").update({ stock_quantity: quantity, delivery_timeframe: deliveryTimeframe }).eq("id", product.id).eq("seller_id", user.id).select("id,stock_quantity,quantity_sold,delivery_timeframe").single();
+    setSavingStockId(null);
+    if (error) { toast({ title: "Could not update stock", description: sanitizeError(error), variant: "destructive" }); return; }
+    setProducts((current) => current.map((item) => item.id === product.id ? { ...item, ...data } : item));
+    setStockDrafts((current) => { const next = { ...current }; delete next[product.id]; return next; });
+    setDeliveryDrafts((current) => { const next = { ...current }; delete next[product.id]; return next; });
+    toast({ title: "Listing details updated" });
+  };
 
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
@@ -480,10 +516,10 @@ const Dashboard = () => {
                   <div className="min-w-0">
                     <p className="font-medium text-foreground text-sm truncate">{order.product_name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {order.status === "paid_held" && order.daysLeft !== null
-                        ? `Buyer has ${order.daysLeft} day(s) left to confirm`
+                      {order.status === "paid_held"
+                        ? "Waiting for buyer to confirm receipt — funds remain held"
                         : order.status === "released"
-                        ? "Confirmed — payout processing"
+                        ? "Buyer confirmed — awaiting manual seller payout"
                         : order.status === "disputed"
                         ? "Buyer reported an issue"
                         : "Payment pending"}
@@ -576,8 +612,8 @@ const Dashboard = () => {
                 )}
               </div>
               <div>
-                <Label htmlFor="deliveryTimeframe">Delivery Timeframe (optional)</Label>
-                <Select value={newProduct.deliveryTimeframe} onValueChange={(val) => setNewProduct({ ...newProduct, deliveryTimeframe: val })}>
+                <Label htmlFor="deliveryTimeframe">Expected Delivery Time <span className="text-destructive">*</span></Label>
+                <Select required value={newProduct.deliveryTimeframe} onValueChange={(val) => setNewProduct({ ...newProduct, deliveryTimeframe: val })}>
                   <SelectTrigger><SelectValue placeholder="Select timeframe" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Same day">Same day</SelectItem>
@@ -586,6 +622,12 @@ const Dashboard = () => {
                     <SelectItem value="1–2 weeks">1–2 weeks</SelectItem>
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground mt-1.5">MART101 Pay is available only when delivery is expected within 3 days. Longer delivery times remain visible as regular listings but Pay Now will be disabled.</p>
+              </div>
+              <div>
+                <Label htmlFor="stockQuantity">Available Quantity <span className="text-destructive">*</span></Label>
+                <Input id="stockQuantity" type="number" min="1" max="10000" step="1" required value={newProduct.stockQuantity} onChange={(e) => setNewProduct({ ...newProduct, stockQuantity: e.target.value })} placeholder="e.g. 5" />
+                <p className="text-xs text-muted-foreground mt-1.5">Enter how many units you currently have. MART101 tracks sold and remaining quantities.</p>
               </div>
             </div>
 
@@ -719,6 +761,44 @@ const Dashboard = () => {
                     </Button>
                   </div>
                   <ConditionBadge condition={product.condition || "Brand New"} className="mt-2" />
+                  <div className="mt-3 space-y-1.5">
+                    {profile?.suspended ? (
+                      <p className="text-[11px] font-medium text-destructive">● MART101 Pay disabled — account restricted</p>
+                    ) : profile?.payment_status !== "approved" ? (
+                      <p className="text-[11px] font-medium text-amber-600">● MART101 Pay disabled — seller approval required</p>
+                    ) : product.flagged ? (
+                      <p className="text-[11px] font-medium text-amber-600">● MART101 Pay disabled — listing under review</p>
+                    ) : product.payment_type === "Pre-order" ? (
+                      <p className="text-[11px] font-medium text-amber-600">● Pay Now unavailable — pre-order listing</p>
+                    ) : !product.delivery_timeframe ? (
+                      <p className="text-[11px] font-medium text-amber-600">● Pay Now disabled — delivery timeframe missing</p>
+                    ) : !["Same day", "1–3 days"].includes(product.delivery_timeframe) ? (
+                      <p className="text-[11px] font-medium text-amber-600">● Pay Now disabled — delivery exceeds 3 days ({product.delivery_timeframe})</p>
+                    ) : product.stock_quantity == null ? (
+                      <p className="text-[11px] font-medium text-amber-600">● Pay Now disabled — set your stock quantity</p>
+                    ) : Number(product.stock_quantity) <= Number(product.quantity_sold || 0) ? (
+                      <p className="text-[11px] font-medium text-destructive">● Sold out — Pay Now disabled</p>
+                    ) : (
+                      <p className="text-[11px] font-medium text-emerald-600">● Pay Now eligible — delivery within 3 days</p>
+                    )}
+                    <p className="text-[10px] text-muted-foreground">{product.payment_type || "Payment type not set"} · Delivery: {product.delivery_timeframe || "Not set"}</p>
+                    <div className="rounded-lg bg-muted/40 p-2 mt-2 space-y-1">
+                      <p className="text-xs">Sold: <strong>{Number(product.quantity_sold || 0)}</strong> · Remaining: <strong>{product.stock_quantity == null ? "Not set" : Math.max(0, Number(product.stock_quantity) - Number(product.quantity_sold || 0))}</strong></p>
+                      <div className="flex gap-2 items-center">
+                        <Input aria-label={`Stock quantity for ${product.name}`} type="number" min={Number(product.quantity_sold || 0)} max="10000" step="1" className="h-8 text-xs" value={stockDrafts[product.id] ?? (product.stock_quantity == null ? "" : String(product.stock_quantity))} onChange={(e) => setStockDrafts((current) => ({ ...current, [product.id]: e.target.value }))} placeholder="Set total stock" />
+                        <Select value={deliveryDrafts[product.id] ?? product.delivery_timeframe ?? ""} onValueChange={(value) => setDeliveryDrafts((current) => ({ ...current, [product.id]: value }))}>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Delivery time" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Same day">Same day</SelectItem>
+                            <SelectItem value="1–3 days">1–3 days</SelectItem>
+                            <SelectItem value="3–7 days">3–7 days</SelectItem>
+                            <SelectItem value="1–2 weeks">1–2 weeks</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button type="button" size="sm" variant="outline" className="h-8 w-full text-xs" disabled={savingStockId === product.id || ((stockDrafts[product.id] ?? String(product.stock_quantity ?? "")) === String(product.stock_quantity ?? "") && (deliveryDrafts[product.id] ?? product.delivery_timeframe ?? "") === (product.delivery_timeframe ?? ""))} onClick={() => saveStockQuantity(product)}>{savingStockId === product.id ? "Saving…" : "Save stock & delivery"}</Button>
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}
