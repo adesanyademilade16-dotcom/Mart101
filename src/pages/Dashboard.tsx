@@ -738,10 +738,10 @@ const Dashboard = () => {
         {products.length === 0 ? (
           <p className="text-muted-foreground text-center py-10">You haven't listed any products yet.</p>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
             {products.map((product) => (
-              <div key={product.id} className="glass-card overflow-hidden">
-                <div className="aspect-square bg-muted">
+              <div key={product.id} className="glass-card overflow-hidden rounded-2xl">
+                <div className="aspect-[16/10] sm:aspect-[16/9] bg-muted">
                   {product.image_url ? (
                     <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" loading="lazy" />
                   ) : (
@@ -750,10 +750,10 @@ const Dashboard = () => {
                     </div>
                   )}
                 </div>
-                <div className="p-4">
-                  <div className="flex items-center justify-between">
+                <div className="p-5 sm:p-6 space-y-4">
+                  <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <h3 className="font-semibold text-foreground truncate">{product.name}</h3>
+                      <h3 className="font-semibold text-foreground text-base sm:text-lg break-words">{product.name}</h3>
                       <p className="text-secondary font-bold">₦{Number(product.price).toLocaleString()}</p>
                     </div>
                     <Button variant="ghost" size="icon" onClick={() => setDeleteTarget({ id: product.id, name: product.name })} className="text-destructive hover:text-destructive shrink-0">
@@ -761,42 +761,65 @@ const Dashboard = () => {
                     </Button>
                   </div>
                   <ConditionBadge condition={product.condition || "Brand New"} className="mt-2" />
-                  <div className="mt-3 space-y-1.5">
+                  <div className="space-y-3">
                     {profile?.suspended ? (
-                      <p className="text-[11px] font-medium text-destructive">● MART101 Pay disabled — account restricted</p>
+                      <p className="text-xs sm:text-sm leading-relaxed font-medium text-destructive">● MART101 Pay disabled — account restricted</p>
                     ) : profile?.payment_status !== "approved" ? (
-                      <p className="text-[11px] font-medium text-amber-600">● MART101 Pay disabled — seller approval required</p>
+                      <p className="text-xs sm:text-sm leading-relaxed font-medium text-amber-600">● MART101 Pay disabled — seller approval required</p>
                     ) : product.flagged ? (
-                      <p className="text-[11px] font-medium text-amber-600">● MART101 Pay disabled — listing under review</p>
+                      <p className="text-xs sm:text-sm leading-relaxed font-medium text-amber-600">● MART101 Pay disabled — listing under review</p>
                     ) : product.payment_type === "Pre-order" ? (
-                      <p className="text-[11px] font-medium text-amber-600">● Pay Now unavailable — pre-order listing</p>
+                      <p className="text-xs sm:text-sm leading-relaxed font-medium text-amber-600">● Pay Now unavailable — pre-order listing</p>
                     ) : !product.delivery_timeframe ? (
-                      <p className="text-[11px] font-medium text-amber-600">● Pay Now disabled — delivery timeframe missing</p>
+                      <p className="text-xs sm:text-sm leading-relaxed font-medium text-amber-600">● Pay Now disabled — delivery timeframe missing</p>
                     ) : !["Same day", "1–3 days"].includes(product.delivery_timeframe) ? (
-                      <p className="text-[11px] font-medium text-amber-600">● Pay Now disabled — delivery exceeds 3 days ({product.delivery_timeframe})</p>
+                      <p className="text-xs sm:text-sm leading-relaxed font-medium text-amber-600">● Pay Now disabled — delivery exceeds 3 days ({product.delivery_timeframe})</p>
                     ) : product.stock_quantity == null ? (
-                      <p className="text-[11px] font-medium text-amber-600">● Pay Now disabled — set your stock quantity</p>
+                      <p className="text-xs sm:text-sm leading-relaxed font-medium text-amber-600">● Pay Now disabled — set your stock quantity</p>
                     ) : Number(product.stock_quantity) <= Number(product.quantity_sold || 0) ? (
-                      <p className="text-[11px] font-medium text-destructive">● Sold out — Pay Now disabled</p>
+                      <p className="text-xs sm:text-sm leading-relaxed font-medium text-destructive">● Sold out — Pay Now disabled</p>
                     ) : (
-                      <p className="text-[11px] font-medium text-emerald-600">● Pay Now eligible — delivery within 3 days</p>
+                      <p className="text-xs sm:text-sm leading-relaxed font-medium text-emerald-600">● Pay Now eligible — delivery within 3 days</p>
                     )}
-                    <p className="text-[10px] text-muted-foreground">{product.payment_type || "Payment type not set"} · Delivery: {product.delivery_timeframe || "Not set"}</p>
-                    <div className="rounded-lg bg-muted/40 p-2 mt-2 space-y-1">
-                      <p className="text-xs">Sold: <strong>{Number(product.quantity_sold || 0)}</strong> · Remaining: <strong>{product.stock_quantity == null ? "Not set" : Math.max(0, Number(product.stock_quantity) - Number(product.quantity_sold || 0))}</strong></p>
-                      <div className="flex gap-2 items-center">
-                        <Input aria-label={`Stock quantity for ${product.name}`} type="number" min={Number(product.quantity_sold || 0)} max="10000" step="1" className="h-8 text-xs" value={stockDrafts[product.id] ?? (product.stock_quantity == null ? "" : String(product.stock_quantity))} onChange={(e) => setStockDrafts((current) => ({ ...current, [product.id]: e.target.value }))} placeholder="Set total stock" />
-                        <Select value={deliveryDrafts[product.id] ?? product.delivery_timeframe ?? ""} onValueChange={(value) => setDeliveryDrafts((current) => ({ ...current, [product.id]: value }))}>
-                          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Delivery time" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Same day">Same day</SelectItem>
-                            <SelectItem value="1–3 days">1–3 days</SelectItem>
-                            <SelectItem value="3–7 days">3–7 days</SelectItem>
-                            <SelectItem value="1–2 weeks">1–2 weeks</SelectItem>
-                          </SelectContent>
-                        </Select>
+                    <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">{product.payment_type || "Payment type not set"} · Delivery: {product.delivery_timeframe || "Not set"}</p>
+                    <div className="rounded-2xl border border-border bg-muted/35 p-4 sm:p-5 space-y-4">
+                      <div className="flex items-center gap-2">
+                        <Package className="h-4 w-4 text-secondary" />
+                        <h4 className="text-sm font-semibold text-foreground">Inventory overview</h4>
                       </div>
-                      <Button type="button" size="sm" variant="outline" className="h-8 w-full text-xs" disabled={savingStockId === product.id || ((stockDrafts[product.id] ?? String(product.stock_quantity ?? "")) === String(product.stock_quantity ?? "") && (deliveryDrafts[product.id] ?? product.delivery_timeframe ?? "") === (product.delivery_timeframe ?? ""))} onClick={() => saveStockQuantity(product)}>{savingStockId === product.id ? "Saving…" : "Save stock & delivery"}</Button>
+                      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                        <div className="rounded-xl bg-background border border-border p-3 min-w-0">
+                          <p className="text-[11px] sm:text-xs text-muted-foreground">Total stock</p>
+                          <p className="mt-1 text-lg sm:text-xl font-bold text-foreground tabular-nums break-words">{product.stock_quantity == null ? "—" : Number(product.stock_quantity).toLocaleString()}</p>
+                        </div>
+                        <div className="rounded-xl bg-background border border-border p-3 min-w-0">
+                          <p className="text-[11px] sm:text-xs text-muted-foreground">Sold</p>
+                          <p className="mt-1 text-lg sm:text-xl font-bold text-foreground tabular-nums">{Number(product.quantity_sold || 0).toLocaleString()}</p>
+                        </div>
+                        <div className="rounded-xl bg-background border border-border p-3 min-w-0">
+                          <p className="text-[11px] sm:text-xs text-muted-foreground">Remaining</p>
+                          <p className="mt-1 text-lg sm:text-xl font-bold text-emerald-600 tabular-nums break-words">{product.stock_quantity == null ? "—" : Math.max(0, Number(product.stock_quantity) - Number(product.quantity_sold || 0)).toLocaleString()}</p>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="space-y-2">
+                          <Label htmlFor={`stock-${product.id}`} className="text-sm font-medium">Total quantity available</Label>
+                          <Input id={`stock-${product.id}`} aria-label={`Stock quantity for ${product.name}`} type="number" inputMode="numeric" min={Number(product.quantity_sold || 0)} max="10000" step="1" className="h-12 rounded-xl bg-background px-4 text-base" value={stockDrafts[product.id] ?? (product.stock_quantity == null ? "" : String(product.stock_quantity))} onChange={(e) => setStockDrafts((current) => ({ ...current, [product.id]: e.target.value }))} placeholder="Enter total stock quantity" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Expected delivery duration</Label>
+                          <Select value={deliveryDrafts[product.id] ?? product.delivery_timeframe ?? ""} onValueChange={(value) => setDeliveryDrafts((current) => ({ ...current, [product.id]: value }))}>
+                            <SelectTrigger className="h-12 w-full rounded-xl bg-background px-4 text-base"><SelectValue placeholder="Choose delivery time" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Same day">Same day</SelectItem>
+                              <SelectItem value="1–3 days">1–3 days</SelectItem>
+                              <SelectItem value="3–7 days">3–7 days</SelectItem>
+                              <SelectItem value="1–2 weeks">1–2 weeks</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <Button type="button" size="lg" variant="outline" className="h-12 w-full rounded-xl text-sm font-semibold" disabled={savingStockId === product.id || ((stockDrafts[product.id] ?? String(product.stock_quantity ?? "")) === String(product.stock_quantity ?? "") && (deliveryDrafts[product.id] ?? product.delivery_timeframe ?? "") === (product.delivery_timeframe ?? ""))} onClick={() => saveStockQuantity(product)}>{savingStockId === product.id ? "Saving changes…" : "Save stock & delivery"}</Button>
+                      </div>
                     </div>
                   </div>
                 </div>
