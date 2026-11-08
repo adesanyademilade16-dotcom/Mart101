@@ -39,6 +39,16 @@ export default async function handler(req: any, res: any) {
 
   if (sellerError || !seller) return res.status(503).json({ eligible: false, code: "SELLER_CHECK_FAILED", reason: "Seller eligibility is temporarily unavailable. Please try again." });
 
+  const { data: activeReservations, error: reservationError } = await supabase
+    .from("product_stock_reservations")
+    .select("id")
+    .eq("product_id", productId)
+    .eq("status", "reserved");
+  if (reservationError) {
+    return res.status(503).json({ eligible: false, code: "STOCK_CHECK_FAILED", reason: "Reserved stock could not be confirmed. Please try again." });
+  }
+  const reservedCount = (activeReservations || []).length;
+
   let code = "ELIGIBLE";
   let reason = "Buyers can use MART101 Pay for this listing.";
   if (seller.suspended) {
@@ -66,7 +76,7 @@ export default async function handler(req: any, res: any) {
   } else if (product.stock_quantity == null) {
     code = "STOCK_NOT_SET";
     reason = "The seller has not updated the available quantity for this listing yet.";
-  } else if (Number(product.stock_quantity) - Number(product.quantity_sold || 0) <= 0) {
+  } else if (Number(product.stock_quantity) - Number(product.quantity_sold || 0) - reservedCount <= 0) {
     code = "SOLD_OUT";
     reason = "This item is sold out. Please check with the seller for availability.";
   } else if (!Number.isFinite(Number(product.price)) || Number(product.price) <= 0) {
