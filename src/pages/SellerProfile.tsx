@@ -6,6 +6,7 @@ import LazyImage from "@/components/LazyImage";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { fetchStockAvailability } from "@/lib/stockAvailability";
 import { formatNigerianWhatsapp } from "@/lib/formatWhatsapp";
 import AppHeader from "@/components/AppHeader";
 import VerifiedBadge from "@/components/VerifiedBadge";
@@ -32,6 +33,10 @@ interface Product {
   description: string | null;
   image_url: string | null;
   category: string;
+  stock_quantity?: number | null;
+  quantity_sold?: number | null;
+  quantity_reserved?: number;
+  quantity_available?: number | null;
 }
 
 const SellerProfile = () => {
@@ -63,11 +68,13 @@ const SellerProfile = () => {
 
       const { data: prods } = await supabase
         .from("products")
-        .select("id, name, price, description, image_url, category")
+        .select("id, name, price, description, image_url, category, stock_quantity, quantity_sold")
         .eq("seller_id", sellerId)
         .order("created_at", { ascending: false });
 
-      setProducts(prods || []);
+      let stockMap: Record<string, { quantity_reserved: number; quantity_available: number | null }> = {};
+      try { stockMap = await fetchStockAvailability((prods || []).map((product) => product.id)); } catch { /* Checkout remains authoritative if stock lookup is unavailable. */ }
+      setProducts((prods || []).map((product) => ({ ...product, ...stockMap[product.id] })));
       setLoading(false);
     };
     fetchSeller();
@@ -230,6 +237,9 @@ const SellerProfile = () => {
                 <div className="p-3">
                   <h3 className="font-medium text-foreground text-sm leading-tight truncate">{product.name}</h3>
                   <p className="text-secondary font-bold text-base mt-1">₦{Number(product.price).toLocaleString()}</p>
+                  <p className={`text-[11px] mt-1 font-medium ${product.quantity_available === -1 ? "text-amber-600" : product.stock_quantity != null && product.quantity_available === 0 ? "text-destructive" : "text-muted-foreground"}`}> 
+                    {product.stock_quantity == null ? "Stock not updated" : product.quantity_available === -1 ? "Stock status unavailable" : product.quantity_available === 0 ? "Sold out" : `${product.quantity_available ?? "—"} available · ${Number(product.quantity_sold || 0)} sold`}
+                  </p>
                 </div>
               </Link>
             ))}

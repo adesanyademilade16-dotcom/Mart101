@@ -16,6 +16,7 @@ import { CATEGORIES } from "@/lib/categories";
 import { PRODUCT_CONDITIONS } from "@/lib/conditions";
 import ConfirmModal from "@/components/ConfirmModal";
 import LikeButton from "@/components/LikeButton";
+import { fetchStockAvailability } from "@/lib/stockAvailability";
 
 interface Product {
   id: string;
@@ -28,6 +29,10 @@ interface Product {
   condition: string;
   payment_type: string;
   flagged: boolean;
+  stock_quantity?: number | null;
+  quantity_sold?: number | null;
+  quantity_reserved?: number;
+  quantity_available?: number | null;
   profiles?: {
     full_name: string;
     whatsapp_number: string;
@@ -45,6 +50,7 @@ const Marketplace = () => {
   const [reportTarget, setReportTarget] = useState<{ id: string; name: string } | null>(null);
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
+  const [stockAvailability, setStockAvailability] = useState<Record<string, { quantity_reserved: number; quantity_available: number | null }>>({});
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -65,8 +71,13 @@ const Marketplace = () => {
 
       const profileMap = new Map((profilesData || []).map((p) => [p.user_id, p]));
 
+      let stockMap: Record<string, { quantity_reserved: number; quantity_available: number | null }> = {};
+      try { stockMap = await fetchStockAvailability(productsData.map((p) => p.id)); } catch { /* Keep listing visible; checkout remains authoritative. */ }
+      setStockAvailability(stockMap);
+
       const merged = productsData.map((p) => ({
         ...p,
+        ...stockMap[p.id],
         profiles: profileMap.get(p.seller_id) || undefined,
       }));
 
@@ -249,6 +260,9 @@ const Marketplace = () => {
                   </div>
                   <ConditionBadge condition={product.condition || "Brand New"} className="mt-1" />
                   <PaymentBadge paymentType={product.payment_type || "Pay on Delivery"} className="mt-1" />
+                  <p className={`text-[11px] mt-1 font-medium ${stockAvailability[product.id]?.quantity_available === -1 ? "text-amber-600" : product.stock_quantity != null && stockAvailability[product.id]?.quantity_available === 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                    {product.stock_quantity == null ? "Stock not updated" : stockAvailability[product.id]?.quantity_available === -1 ? "Stock status unavailable" : stockAvailability[product.id]?.quantity_available === 0 ? "Sold out" : `${stockAvailability[product.id]?.quantity_available ?? "—"} available · ${Number(product.quantity_sold || 0)} sold`}
+                  </p>
                   <div className="flex items-center justify-between mt-1">
                     <p className="text-muted-foreground text-xs flex items-center gap-1">
                       <Link to={`/seller/${product.seller_id}`} onClick={(e) => e.stopPropagation()} className="hover:text-secondary transition-colors hover:underline">

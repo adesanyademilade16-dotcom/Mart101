@@ -16,6 +16,7 @@ import ConfirmModal from "@/components/ConfirmModal";
 import MessageSellerButton from "@/components/MessageSellerButton";
 import ShareButton from "@/components/ShareButton";
 import LikeButton from "@/components/LikeButton";
+import { fetchStockAvailability } from "@/lib/stockAvailability";
 import {
   Carousel,
   CarouselContent,
@@ -35,6 +36,8 @@ interface Product {
   condition: string;
   payment_type: string;
   delivery_timeframe: string | null;
+  stock_quantity?: number | null;
+  quantity_sold?: number | null;
   defects_description: string | null;
   extra_image_urls: string[] | null;
   flagged: boolean;
@@ -58,6 +61,9 @@ const ProductDetail = () => {
   const [payingNow, setPayingNow] = useState(false);
   const [myOrderStatus, setMyOrderStatus] = useState<string | null>(null);
   const [checkingOrder, setCheckingOrder] = useState(true);
+  const [eligibility, setEligibility] = useState<{ eligible: boolean; code: string; reason: string } | null>(null);
+  const [checkingEligibility, setCheckingEligibility] = useState(true);
+  const [stockAvailability, setStockAvailability] = useState<{ quantity_reserved: number; quantity_available: number | null } | null>(null);
   const { toast } = useToast();
 
   const allImages = useMemo(() => {
@@ -69,8 +75,10 @@ const ProductDetail = () => {
   }, [product]);
 
   useEffect(() => {
-    const fetch = async () => {
+    const loadProduct = async () => {
       if (!id) return;
+      setCheckingEligibility(true);
+      setEligibility(null);
       const { data } = await supabase
         .from("products")
         .select("*")
@@ -82,14 +90,37 @@ const ProductDetail = () => {
           .rpc("get_seller_public_info", { seller_ids: [data.seller_id] });
         const profile = profileArr?.[0] || null;
 
+        let stockInfo = null;
+        try {
+          const stockMap = await fetchStockAvailability([data.id]);
+          stockInfo = stockMap[data.id] || null;
+        } catch { /* Checkout API still performs the authoritative stock check. */ }
+        setStockAvailability(stockInfo);
         setProduct({
           ...data,
           profiles: profile || undefined,
         } as Product);
+
+        try {
+          const eligibilityResponse = await fetch("/api/payments/eligibility", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ product_id: data.id }),
+          });
+          const eligibilityData = await eligibilityResponse.json();
+          setEligibility({
+            eligible: eligibilityResponse.ok && eligibilityData.eligible === true,
+            code: eligibilityData.code || "CHECK_FAILED",
+            reason: eligibilityData.reason || "We couldn't confirm checkout eligibility. Please try again.",
+          });
+        } catch {
+          setEligibility({ eligible: false, code: "CHECK_FAILED", reason: "We couldn't confirm checkout eligibility. Please try again." });
+        }
       }
+      setCheckingEligibility(false);
       setLoading(false);
     };
-    fetch();
+    loadProduct();
   }, [id]);
 
   useEffect(() => {
@@ -170,7 +201,7 @@ const ProductDetail = () => {
               "@type": "Offer",
               priceCurrency: "NGN",
               price: product.price,
-              availability: "https://schema.org/InStock",
+              availability: product.stock_quantity != null && stockAvailability?.quantity_available === 0 ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
               url: `https://mart101.vercel.app/product/${product.id}`,
             },
           },
@@ -223,6 +254,10 @@ const ProductDetail = () => {
       if (!res.ok || !data.authorization_url) {
         toast({ title: "Could not start payment", description: data.error || "Please try again.", variant: "destructive" });
         setPayingNow(false);
+        if (data.code === "EXISTING_ORDER") {
+          setMyOrderStatus(data.order_status || "pending_payment");
+          navigate("/my-purchases");
+        }
         return;
       }
       window.location.href = data.authorization_url;
@@ -374,6 +409,10 @@ const ProductDetail = () => {
                Delivery timeframe: <span className="font-medium text-foreground">{product.delivery_timeframe}</span>
               </p>
             )}
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+              <span>Sold: <strong className="text-foreground">{Number(product.quantity_sold || 0)}</strong></span>
+              <span>Available now: <strong className={stockAvailability?.quantity_available === -1 ? "text-amber-600" : product.stock_quantity != null && stockAvailability?.quantity_available === 0 ? "text-destructive" : "text-foreground"}>{product.stock_quantity == null ? "Not specified" : stockAvailability?.quantity_available === -1 ? "Unable to confirm" : stockAvailability?.quantity_available ?? "—"}</strong></span>
+            </div>
 
             <div className="mt-4">
               <PaymentTrustMessage paymentType={product.payment_type || "Pay on Delivery"} />
@@ -405,8 +444,10 @@ const ProductDetail = () => {
                 </Button>
               </Link>
             )}
-            {!checkingOrder && !myOrderStatus &&
-              product.profiles?.payment_status === "approved" && product.payment_type !== "Pre-order" && (
+            {!checkingOrder && !myOrderStatus && checkingEligibility && (
+              <Button disabled variant="outline" className="w-full font-semibold text-base h-14 mt-6">Checking protected checkout…</Button>
+            )}
+            {!checkingOrder && !myOrderStatus && !checkingEligibility && eligibility?.eligible && (
               <Button
                 onClick={handlePayNow}
                 disabled={payingNow}
@@ -415,6 +456,12 @@ const ProductDetail = () => {
                 <ShieldCheck className="w-5 h-5 mr-2" />
                 {payingNow ? "Starting payment..." : "Pay Now (Buyer Protected)"}
               </Button>
+            )}
+            {!checkingOrder && !myOrderStatus && !checkingEligibility && eligibility && !eligibility.eligible && (
+              <div className="mt-6 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
+                <p className="text-sm font-semibold text-foreground">MART101 Pay unavailable</p>
+                <p className="text-xs text-muted-foreground mt-1">{eligibility.reason}</p>
+              </div>
             )}
 
             <div className="grid grid-cols-2 gap-3 mt-3">
