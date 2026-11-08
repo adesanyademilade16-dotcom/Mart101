@@ -74,22 +74,41 @@ const MyPurchases = () => {
   }, [navigate]);
 
   const handleProofUpload = async (orderId: string, file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Choose an image", description: "Please select an image file.", variant: "destructive" });
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "Image is too large", description: "Please choose an image smaller than 10 MB.", variant: "destructive" });
+      return;
+    }
+
     setUploadingFor(orderId);
     try {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
       const res = await fetch(CLOUDINARY_UPLOAD_URL, { method: "POST", body: formData });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
+      const cloudinaryData = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(cloudinaryData?.error?.message || `Cloudinary upload failed (${res.status}).`);
+      }
 
-      const { error } = await supabase.from("orders").update({ proof_image_url: data.secure_url }).eq("id", orderId);
-      if (error) throw error;
+      const imageUrl = cloudinaryData?.secure_url;
+      if (typeof imageUrl !== "string" || !imageUrl.startsWith(`https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/`)) {
+        throw new Error("Cloudinary did not return a valid image URL.");
+      }
 
-      setOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, proof_image_url: data.secure_url } : o));
+      const { error } = await supabase.from("orders").update({ proof_image_url: imageUrl }).eq("id", orderId);
+      if (error) {
+        throw new Error(`Image uploaded, but MART101 could not save it to this order: ${error.message}`);
+      }
+
+      setOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, proof_image_url: imageUrl } : o));
       toast({ title: "Photo added" });
-    } catch {
-      toast({ title: "Upload failed", description: "Please try again.", variant: "destructive" });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "An unexpected error occurred.";
+      toast({ title: "Upload failed", description: message, variant: "destructive" });
     } finally {
       setUploadingFor(null);
     }
