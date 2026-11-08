@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { ShoppingBag, Plus, Trash2, Upload, AlertTriangle, CalendarDays, Package, ShieldCheck, BadgeCheck, Clock } from "lucide-react";
+import { ShoppingBag, Plus, Trash2, Upload, AlertTriangle, CalendarDays, Package, ShieldCheck, BadgeCheck, Clock, Pencil } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import ConfirmModal from "@/components/ConfirmModal";
 import ConditionBadge from "@/components/ConditionBadge";
@@ -29,6 +29,8 @@ interface Product {
   delivery_timeframe?: string | null;
   stock_quantity?: number | null;
   quantity_sold?: number | null;
+  defects_description?: string | null;
+  extra_image_urls?: string[] | null;
 }
 
 const MAX_PRICE = 1000000;
@@ -76,6 +78,10 @@ const Dashboard = () => {
   const [stockDrafts, setStockDrafts] = useState<Record<string, string>>({});
   const [deliveryDrafts, setDeliveryDrafts] = useState<Record<string, string>>({});
   const [savingStockId, setSavingStockId] = useState<string | null>(null);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editDraft, setEditDraft] = useState({ name: "", price: "", description: "", category: "", condition: "", defectsDescription: "", paymentType: "", deliveryTimeframe: "" });
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [extraFiles, setExtraFiles] = useState<File[]>([]);
@@ -367,6 +373,80 @@ const Dashboard = () => {
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [isFormDirty]);
+
+  const openProductEditor = (product: Product) => {
+    setEditingProduct(product);
+    setEditDraft({
+      name: product.name || "",
+      price: String(product.price ?? ""),
+      description: product.description || "",
+      category: product.category || "",
+      condition: product.condition || "Brand New",
+      defectsDescription: product.defects_description || "",
+      paymentType: product.payment_type || "Pay on Delivery",
+      deliveryTimeframe: product.delivery_timeframe || "Same day",
+    });
+    setEditImageFile(null);
+  };
+
+  const saveProductEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProduct || !user) return;
+    const price = Number(editDraft.price);
+    if (editDraft.name.trim().length < 2 || editDraft.name.trim().length > 100 || editDraft.description.trim().length < 10 || editDraft.description.trim().length > 2000 || !Number.isFinite(price) || price <= 0 || price > MAX_PRICE) {
+      toast({ title: "Check your listing details", description: "Name must be 2–100 characters, description 10–2,000 characters, and price must be between ₦1 and ₦1,000,000.", variant: "destructive" });
+      return;
+    }
+    setSavingEdit(true);
+    let imageUrl = editingProduct.image_url;
+    if (editImageFile) {
+      const ext = editImageFile.name.split(".").pop() || "jpg";
+      const path = `${user.id}/${Date.now()}-edit.${ext}`;
+      const buffer = await editImageFile.arrayBuffer();
+      const { error: uploadError } = await supabase.storage.from("product-images").upload(path, buffer, { contentType: editImageFile.type });
+      if (uploadError) {
+        setSavingEdit(false);
+        toast({ title: "Image upload failed", description: sanitizeError(uploadError), variant: "destructive" });
+        return;
+      }
+      imageUrl = supabase.storage.from("product-images").getPublicUrl(path).data.publicUrl;
+    }
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      setSavingEdit(false);
+      toast({ title: "Session expired", description: "Please sign in again.", variant: "destructive" });
+      return;
+    }
+    try {
+      const response = await fetch("/api/products/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          product_id: editingProduct.id,
+          name: editDraft.name.trim(),
+          price,
+          description: editDraft.description.trim(),
+          category: editDraft.category,
+          condition: editDraft.condition,
+          defects_description: editDraft.defectsDescription,
+          payment_type: editDraft.paymentType,
+          delivery_timeframe: editDraft.deliveryTimeframe,
+          image_url: imageUrl,
+          extra_image_urls: editingProduct.extra_image_urls || [],
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not update listing.");
+      setProducts((current) => current.map((item) => item.id === editingProduct.id ? result.product : item));
+      setEditingProduct(null);
+      setEditImageFile(null);
+      toast({ title: "Listing updated", description: "New buyers will see these details. Existing purchases keep their original terms." });
+    } catch (error: any) {
+      toast({ title: "Could not update listing", description: error?.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   const saveStockQuantity = async (product: Product) => {
     const raw = stockDrafts[product.id] ?? String(product.stock_quantity ?? "");
@@ -738,10 +818,10 @@ const Dashboard = () => {
         {products.length === 0 ? (
           <p className="text-muted-foreground text-center py-10">You haven't listed any products yet.</p>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {products.map((product) => (
-              <div key={product.id} className="glass-card overflow-hidden rounded-xl">
-                <div className="aspect-[16/7] sm:aspect-[16/9] bg-muted">
+              <div key={product.id} className="glass-card overflow-hidden">
+                <div className="aspect-square bg-muted">
                   {product.image_url ? (
                     <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" loading="lazy" />
                   ) : (
@@ -750,76 +830,56 @@ const Dashboard = () => {
                     </div>
                   )}
                 </div>
-                <div className="p-4 space-y-3">
-                  <div className="flex items-start justify-between gap-3">
+                <div className="p-4">
+                  <div className="flex items-center justify-between">
                     <div className="min-w-0 flex-1">
-                      <h3 className="font-semibold text-foreground text-base sm:text-lg break-words">{product.name}</h3>
+                      <h3 className="font-semibold text-foreground truncate">{product.name}</h3>
                       <p className="text-secondary font-bold">₦{Number(product.price).toLocaleString()}</p>
                     </div>
+                    <Button variant="ghost" size="icon" onClick={() => openProductEditor(product)} className="shrink-0" aria-label={`Edit ${product.name}`}>
+                      <Pencil className="w-4 h-4" />
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={() => setDeleteTarget({ id: product.id, name: product.name })} className="text-destructive hover:text-destructive shrink-0">
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
                   <ConditionBadge condition={product.condition || "Brand New"} className="mt-2" />
-                  <div className="space-y-3">
+                  <div className="mt-3 space-y-1.5">
                     {profile?.suspended ? (
-                      <p className="text-xs sm:text-sm leading-relaxed font-medium text-destructive">● MART101 Pay disabled — account restricted</p>
+                      <p className="text-[11px] font-medium text-destructive">● MART101 Pay disabled — account restricted</p>
                     ) : profile?.payment_status !== "approved" ? (
-                      <p className="text-xs sm:text-sm leading-relaxed font-medium text-amber-600">● MART101 Pay disabled — seller approval required</p>
+                      <p className="text-[11px] font-medium text-amber-600">● MART101 Pay disabled — seller approval required</p>
                     ) : product.flagged ? (
-                      <p className="text-xs sm:text-sm leading-relaxed font-medium text-amber-600">● MART101 Pay disabled — listing under review</p>
+                      <p className="text-[11px] font-medium text-amber-600">● MART101 Pay disabled — listing under review</p>
                     ) : product.payment_type === "Pre-order" ? (
-                      <p className="text-xs sm:text-sm leading-relaxed font-medium text-amber-600">● Pay Now unavailable — pre-order listing</p>
+                      <p className="text-[11px] font-medium text-amber-600">● Pay Now unavailable — pre-order listing</p>
                     ) : !product.delivery_timeframe ? (
-                      <p className="text-xs sm:text-sm leading-relaxed font-medium text-amber-600">● Pay Now disabled — delivery timeframe missing</p>
+                      <p className="text-[11px] font-medium text-amber-600">● Pay Now disabled — delivery timeframe missing</p>
                     ) : !["Same day", "1–3 days"].includes(product.delivery_timeframe) ? (
-                      <p className="text-xs sm:text-sm leading-relaxed font-medium text-amber-600">● Pay Now disabled — delivery exceeds 3 days ({product.delivery_timeframe})</p>
+                      <p className="text-[11px] font-medium text-amber-600">● Pay Now disabled — delivery exceeds 3 days ({product.delivery_timeframe})</p>
                     ) : product.stock_quantity == null ? (
-                      <p className="text-xs sm:text-sm leading-relaxed font-medium text-amber-600">● Pay Now disabled — set your stock quantity</p>
+                      <p className="text-[11px] font-medium text-amber-600">● Pay Now disabled — set your stock quantity</p>
                     ) : Number(product.stock_quantity) <= Number(product.quantity_sold || 0) ? (
-                      <p className="text-xs sm:text-sm leading-relaxed font-medium text-destructive">● Sold out — Pay Now disabled</p>
+                      <p className="text-[11px] font-medium text-destructive">● Sold out — Pay Now disabled</p>
                     ) : (
-                      <p className="text-xs sm:text-sm leading-relaxed font-medium text-emerald-600">● Pay Now eligible — delivery within 3 days</p>
+                      <p className="text-[11px] font-medium text-emerald-600">● Pay Now eligible — delivery within 3 days</p>
                     )}
-                    <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">{product.payment_type || "Payment type not set"} · Delivery: {product.delivery_timeframe || "Not set"}</p>
-                    <div className="rounded-xl border border-border bg-muted/35 p-3 space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Package className="h-4 w-4 text-secondary" />
-                        <h4 className="text-sm font-semibold text-foreground">Inventory overview</h4>
+                    <p className="text-[10px] text-muted-foreground">{product.payment_type || "Payment type not set"} · Delivery: {product.delivery_timeframe || "Not set"}</p>
+                    <div className="rounded-lg bg-muted/40 p-2 mt-2 space-y-1">
+                      <p className="text-xs">Sold: <strong>{Number(product.quantity_sold || 0)}</strong> · Remaining: <strong>{product.stock_quantity == null ? "Not set" : Math.max(0, Number(product.stock_quantity) - Number(product.quantity_sold || 0))}</strong></p>
+                      <div className="flex gap-2 items-center">
+                        <Input aria-label={`Stock quantity for ${product.name}`} type="number" min={Number(product.quantity_sold || 0)} max="10000" step="1" className="h-8 text-xs" value={stockDrafts[product.id] ?? (product.stock_quantity == null ? "" : String(product.stock_quantity))} onChange={(e) => setStockDrafts((current) => ({ ...current, [product.id]: e.target.value }))} placeholder="Set total stock" />
+                        <Select value={deliveryDrafts[product.id] ?? product.delivery_timeframe ?? ""} onValueChange={(value) => setDeliveryDrafts((current) => ({ ...current, [product.id]: value }))}>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Delivery time" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Same day">Same day</SelectItem>
+                            <SelectItem value="1–3 days">1–3 days</SelectItem>
+                            <SelectItem value="3–7 days">3–7 days</SelectItem>
+                            <SelectItem value="1–2 weeks">1–2 weeks</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
-                      <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                        <div className="rounded-lg bg-background border border-border p-2.5 min-w-0">
-                          <p className="text-[11px] sm:text-xs text-muted-foreground">Total stock</p>
-                          <p className="mt-1 text-lg sm:text-xl font-bold text-foreground tabular-nums break-words">{product.stock_quantity == null ? "—" : Number(product.stock_quantity).toLocaleString()}</p>
-                        </div>
-                        <div className="rounded-lg bg-background border border-border p-2.5 min-w-0">
-                          <p className="text-[11px] sm:text-xs text-muted-foreground">Sold</p>
-                          <p className="mt-1 text-lg sm:text-xl font-bold text-foreground tabular-nums">{Number(product.quantity_sold || 0).toLocaleString()}</p>
-                        </div>
-                        <div className="rounded-lg bg-background border border-border p-2.5 min-w-0">
-                          <p className="text-[11px] sm:text-xs text-muted-foreground">Remaining</p>
-                          <p className="mt-1 text-lg sm:text-xl font-bold text-emerald-600 tabular-nums break-words">{product.stock_quantity == null ? "—" : Math.max(0, Number(product.stock_quantity) - Number(product.quantity_sold || 0)).toLocaleString()}</p>
-                        </div>
-                      </div>
-                      <div className="space-y-3">
-                        <div className="space-y-2">
-                          <Label htmlFor={`stock-${product.id}`} className="text-sm font-medium">Total quantity available</Label>
-                          <Input id={`stock-${product.id}`} aria-label={`Stock quantity for ${product.name}`} type="number" inputMode="numeric" min={Number(product.quantity_sold || 0)} max="10000" step="1" className="h-10 rounded-lg bg-background px-3 text-sm" value={stockDrafts[product.id] ?? (product.stock_quantity == null ? "" : String(product.stock_quantity))} onChange={(e) => setStockDrafts((current) => ({ ...current, [product.id]: e.target.value }))} placeholder="Enter total stock quantity" />
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-sm font-medium">Expected delivery duration</Label>
-                          <Select value={deliveryDrafts[product.id] ?? product.delivery_timeframe ?? ""} onValueChange={(value) => setDeliveryDrafts((current) => ({ ...current, [product.id]: value }))}>
-                            <SelectTrigger className="h-10 w-full rounded-lg bg-background px-3 text-sm"><SelectValue placeholder="Choose delivery time" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Same day">Same day</SelectItem>
-                              <SelectItem value="1–3 days">1–3 days</SelectItem>
-                              <SelectItem value="3–7 days">3–7 days</SelectItem>
-                              <SelectItem value="1–2 weeks">1–2 weeks</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <Button type="button" size="lg" variant="outline" className="h-10 w-full rounded-lg text-sm font-semibold" disabled={savingStockId === product.id || ((stockDrafts[product.id] ?? String(product.stock_quantity ?? "")) === String(product.stock_quantity ?? "") && (deliveryDrafts[product.id] ?? product.delivery_timeframe ?? "") === (product.delivery_timeframe ?? ""))} onClick={() => saveStockQuantity(product)}>{savingStockId === product.id ? "Saving changes…" : "Save stock & delivery"}</Button>
-                      </div>
+                      <Button type="button" size="sm" variant="outline" className="h-8 w-full text-xs" disabled={savingStockId === product.id || ((stockDrafts[product.id] ?? String(product.stock_quantity ?? "")) === String(product.stock_quantity ?? "") && (deliveryDrafts[product.id] ?? product.delivery_timeframe ?? "") === (product.delivery_timeframe ?? ""))} onClick={() => saveStockQuantity(product)}>{savingStockId === product.id ? "Saving…" : "Save stock & delivery"}</Button>
                     </div>
                   </div>
                 </div>
@@ -828,6 +888,33 @@ const Dashboard = () => {
           </div>
         )}
       </main>
+
+      {editingProduct && (
+        <div className="fixed inset-0 z-[100] bg-black/70 flex items-center justify-center p-3" role="dialog" aria-modal="true" aria-labelledby="edit-product-title">
+          <form onSubmit={saveProductEdit} className="w-full max-w-xl max-h-[92vh] overflow-y-auto rounded-2xl bg-background border border-border shadow-2xl p-5 space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 id="edit-product-title" className="text-lg font-bold">Edit Product</h2>
+                <p className="text-xs text-muted-foreground">Updates apply to future buyers only.</p>
+              </div>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setEditingProduct(null)}>Close</Button>
+            </div>
+            <div className="rounded-lg border border-secondary/30 bg-secondary/5 p-3 text-xs text-muted-foreground">Existing orders keep their original product details, price and delivery terms. Editing this listing will not rewrite a buyer’s purchase.</div>
+            <div className="space-y-1"><Label>Product name</Label><Input required maxLength={100} value={editDraft.name} onChange={(e) => setEditDraft({ ...editDraft, name: e.target.value })} /></div>
+            <div className="space-y-1"><Label>Price (₦)</Label><Input required type="number" min="1" max={MAX_PRICE} value={editDraft.price} onChange={(e) => setEditDraft({ ...editDraft, price: e.target.value })} /></div>
+            <div className="space-y-1"><Label>Description</Label><Textarea required minLength={10} maxLength={2000} rows={4} value={editDraft.description} onChange={(e) => setEditDraft({ ...editDraft, description: e.target.value })} /></div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1"><Label>Category</Label><Select value={editDraft.category} onValueChange={(v) => setEditDraft({ ...editDraft, category: v })}><SelectTrigger><SelectValue placeholder="Category" /></SelectTrigger><SelectContent>{CATEGORIES.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select></div>
+              <div className="space-y-1"><Label>Condition</Label><Select value={editDraft.condition} onValueChange={(v) => setEditDraft({ ...editDraft, condition: v })}><SelectTrigger><SelectValue placeholder="Condition" /></SelectTrigger><SelectContent>{PRODUCT_CONDITIONS.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select></div>
+              <div className="space-y-1"><Label>Payment type</Label><Select value={editDraft.paymentType} onValueChange={(v) => setEditDraft({ ...editDraft, paymentType: v })}><SelectTrigger><SelectValue placeholder="Payment type" /></SelectTrigger><SelectContent><SelectItem value="Pay on Delivery">Pay on Delivery</SelectItem><SelectItem value="Pre-order">Pre-order</SelectItem><SelectItem value="Flexible">Flexible</SelectItem></SelectContent></Select></div>
+              <div className="space-y-1"><Label>Delivery timeframe</Label><Select value={editDraft.deliveryTimeframe} onValueChange={(v) => setEditDraft({ ...editDraft, deliveryTimeframe: v })}><SelectTrigger><SelectValue placeholder="Delivery time" /></SelectTrigger><SelectContent><SelectItem value="Same day">Same day</SelectItem><SelectItem value="1–3 days">1–3 days</SelectItem><SelectItem value="3–7 days">3–7 days</SelectItem><SelectItem value="1–2 weeks">1–2 weeks</SelectItem></SelectContent></Select></div>
+            </div>
+            {editDraft.condition.startsWith("Used") && <div className="space-y-1"><Label>Defects / wear description</Label><Textarea rows={2} maxLength={1000} value={editDraft.defectsDescription} onChange={(e) => setEditDraft({ ...editDraft, defectsDescription: e.target.value })} /></div>}
+            <div className="space-y-2"><Label>Replace main image (optional)</Label>{editingProduct.image_url && <img src={editingProduct.image_url} alt="Current listing" className="w-24 h-24 rounded-lg object-cover" />}<Input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={(e) => setEditImageFile(e.target.files?.[0] || null)} />{editImageFile && <p className="text-xs text-muted-foreground">New image: {editImageFile.name}</p>}</div>
+            <div className="flex gap-2 justify-end pt-2"><Button type="button" variant="outline" onClick={() => setEditingProduct(null)} disabled={savingEdit}>Cancel</Button><Button type="submit" variant="secondary" disabled={savingEdit}>{savingEdit ? "Saving…" : "Save Changes"}</Button></div>
+          </form>
+        </div>
+      )}
 
       <ConfirmModal
         open={!!deleteTarget}

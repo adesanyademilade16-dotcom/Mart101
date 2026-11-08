@@ -20,9 +20,10 @@ interface OrderRow {
   total_paid: number;
   status: string;
   proof_image_url: string | null;
-  auto_release_at: string | null;
   dispute_reason: string | null;
   seller_name?: string;
+  checkoutFailed?: boolean;
+  product_snapshot?: { description?: string | null; price?: number | string; category?: string; condition?: string; delivery_timeframe?: string | null; payment_type?: string; defects_description?: string | null } | null;
 }
 
 const MyPurchases = () => {
@@ -55,7 +56,17 @@ const MyPurchases = () => {
         const sellerIds = [...new Set(data.map((o) => o.seller_id))];
         const { data: sellerArr } = await supabase.rpc("get_seller_public_info", { seller_ids: sellerIds });
         const sellerMap = new Map((sellerArr || []).map((s: any) => [s.user_id, s.full_name]));
-        setOrders(data.map((o) => ({ ...o, seller_name: sellerMap.get(o.seller_id) || "Seller" })));
+        const pendingIds = data.filter((o) => o.status === "pending_payment").map((o) => o.id);
+        let failedCheckoutIds: string[] = [];
+        if (pendingIds.length > 0) {
+          const { data: failedIds, error: failedLookupError } = await supabase.rpc("get_buyer_released_checkout_orders", { p_order_ids: pendingIds });
+          if (!failedLookupError && Array.isArray(failedIds)) failedCheckoutIds = failedIds;
+        }
+        setOrders(data.map((o) => ({
+          ...o,
+          seller_name: sellerMap.get(o.seller_id) || "Seller",
+          checkoutFailed: failedCheckoutIds.includes(o.id),
+        })));
       }
       setLoading(false);
     };
@@ -97,7 +108,7 @@ const MyPurchases = () => {
       return;
     }
     setOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, status: "released" } : o));
-    toast({ title: "Thanks for confirming!", description: "The seller will be paid out shortly." });
+    toast({ title: "Receipt confirmed", description: "MART101 has been notified to arrange the seller's payout manually." });
     setConfirmingId(null);
   };
 
@@ -120,10 +131,7 @@ const MyPurchases = () => {
     setDisputeReason("");
   };
 
-  const daysLeft = (autoReleaseAt: string | null) => {
-    if (!autoReleaseAt) return null;
-    return Math.max(0, Math.ceil((new Date(autoReleaseAt).getTime() - Date.now()) / 86400000));
-  };
+
 
   if (loading) {
     return (
@@ -169,11 +177,22 @@ const MyPurchases = () => {
                     <p className="font-semibold text-foreground">{order.product_name}</p>
                     <p className="text-sm text-muted-foreground">Sold by {order.seller_name}</p>
                     <p className="text-sm font-semibold text-secondary">₦{Number(order.total_paid).toLocaleString()}</p>
+                    {order.product_snapshot && (
+                      <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                        {order.product_snapshot.price != null && <p>Item price at purchase: ₦{Number(order.product_snapshot.price).toLocaleString()}</p>}
+                        {order.product_snapshot.condition && <p>Condition: {order.product_snapshot.condition}</p>}
+                        {order.product_snapshot.category && <p>Category: {order.product_snapshot.category}</p>}
+                        {order.product_snapshot.delivery_timeframe && <p>Delivery agreed: {order.product_snapshot.delivery_timeframe}</p>}
+                        {order.product_snapshot.payment_type && <p>Payment type: {order.product_snapshot.payment_type}</p>}
+                        {order.product_snapshot.description && <p className="pt-1">{order.product_snapshot.description}</p>}
+                        {order.product_snapshot.defects_description && <p>Disclosed defects: {order.product_snapshot.defects_description}</p>}
+                      </div>
+                    )}
                   </div>
                   <div>
-                    {order.status === "pending_payment" && <span className="text-xs font-medium bg-amber-500/10 text-amber-600 px-2 py-1 rounded-full">Payment awaiting confirmation</span>}
-                    {order.status === "paid_held" && <span className="text-xs font-medium bg-blue-500/10 text-blue-600 px-2 py-1 rounded-full">Awaiting pickup</span>}
-                    {order.status === "released" && <span className="text-xs font-medium bg-emerald-500/10 text-emerald-600 px-2 py-1 rounded-full">Completed</span>}
+                    {order.status === "pending_payment" && (order.checkoutFailed ? <span className="text-xs font-medium bg-destructive/10 text-destructive px-2 py-1 rounded-full">Payment failed · You can try again</span> : <span className="text-xs font-medium bg-amber-500/10 text-amber-600 px-2 py-1 rounded-full">Payment awaiting confirmation</span>)}
+                    {order.status === "paid_held" && <span className="text-xs font-medium bg-blue-500/10 text-blue-600 px-2 py-1 rounded-full">Delivery in progress</span>}
+                    {order.status === "released" && <span className="text-xs font-medium bg-emerald-500/10 text-emerald-600 px-2 py-1 rounded-full">Receipt confirmed · payout pending</span>}
                     {order.status === "disputed" && <span className="text-xs font-medium bg-amber-500/10 text-amber-600 px-2 py-1 rounded-full">Refund requested</span>}
                     {order.status === "refunded" && <span className="text-xs font-medium bg-muted text-muted-foreground px-2 py-1 rounded-full">Refunded</span>}
                   </div>
@@ -181,11 +200,9 @@ const MyPurchases = () => {
 
                 {order.status === "paid_held" && (
                   <div className="mt-4 pt-4 border-t border-border space-y-3">
-                    {daysLeft(order.auto_release_at) !== null && (
-                      <p className="text-xs text-muted-foreground">
-                        {daysLeft(order.auto_release_at)} day(s) left to confirm or report an issue — after that it auto-releases to the seller.
-                      </p>
-                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Your payment remains held by MART101. Confirm only after you have received and thoroughly checked the item. The seller is paid manually by MART101 after your confirmation.
+                    </p>
                     <input
                       ref={(el) => (fileInputRefs.current[order.id] = el)}
                       type="file" accept="image/*" className="hidden"
@@ -221,7 +238,7 @@ const MyPurchases = () => {
         open={!!confirmingId}
         onOpenChange={(open) => { if (!open) setConfirmingId(null); }}
         title="Confirm you received this item"
-        description="This releases payment to the seller and can't be undone. Only confirm if you're satisfied with the item."
+        description="Your confirmation tells MART101 that you have received and checked the item. MART101 will then arrange the seller's payout manually. Only confirm when you are satisfied."
         confirmLabel="Yes, I received it"
         onConfirm={() => confirmingId && handleConfirmReceived(confirmingId)}
       />
