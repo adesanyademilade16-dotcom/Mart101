@@ -89,13 +89,13 @@ const ProductDetail = () => {
         const { data: profileArr } = await supabase
           .rpc("get_seller_public_info", { seller_ids: [data.seller_id] });
         const profile = profileArr?.[0] || null;
-
         let stockInfo = null;
         try {
           const stockMap = await fetchStockAvailability([data.id]);
           stockInfo = stockMap[data.id] || null;
         } catch { /* Checkout API still performs the authoritative stock check. */ }
         setStockAvailability(stockInfo);
+
         setProduct({
           ...data,
           profiles: profile || undefined,

@@ -4,6 +4,7 @@ import { ShoppingBag, Plus, Trash2, Upload, AlertTriangle, CalendarDays, Package
 import AppHeader from "@/components/AppHeader";
 import ConfirmModal from "@/components/ConfirmModal";
 import DisputeThread from "@/components/DisputeThread";
+import SellerPayoutPanel from "@/components/SellerPayoutPanel";
 import ConditionBadge from "@/components/ConditionBadge";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { supabase } from "@/integrations/supabase/client";
@@ -592,6 +593,8 @@ const Dashboard = () => {
             </Button>
           </Link>
         </div>
+
+        <SellerPayoutPanel />
 
         {/* Orders on your listings */}
         {sellerOrders.length > 0 && (

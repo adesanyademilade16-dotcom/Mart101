@@ -19,6 +19,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import ConfirmModal from "@/components/ConfirmModal";
 import DisputeThread from "@/components/DisputeThread";
+import AdminPayoutManager from "@/components/AdminPayoutManager";
+import { fetchStockAvailability } from "@/lib/stockAvailability";
 import { sanitizeError } from "@/lib/errors";
 
 /* ───────── Types ───────── */
@@ -34,6 +36,8 @@ interface AdminProduct {
   delivery_timeframe: string | null;
   stock_quantity?: number | null;
   quantity_sold?: number | null;
+  quantity_reserved?: number;
+  quantity_available?: number | null;
   image_url: string | null;
   seller_id: string;
   seller_name?: string;
@@ -82,6 +86,7 @@ interface AdminOrder {
   seller_id: string;
   item_amount: number;
   total_paid: number | null;
+  seller_payout?: number | null;
   status: string;
   paystack_reference: string | null;
   created_at: string | null;
@@ -159,6 +164,7 @@ const ACTION_LABELS: Record<string, string> = {
   reject_payment: "Rejected Mart101 Pay",
   action_report: "Actioned report",
   unflag: "Unflagged product",
+  seller_payout_recorded: "Recorded seller payout",
 };
 
 /* ───────── Component ───────── */
@@ -251,10 +257,13 @@ const AdminDashboard = () => {
         const condMap: Record<string, number> = {};
         productsData.forEach((p) => { condMap[p.condition] = (condMap[p.condition] || 0) + 1; });
         setConditionData(Object.entries(condMap).map(([name, value]) => ({ name, value })));
+        let stockMap: Record<string, { quantity_reserved: number; quantity_available: number | null }> = {};
+        try { stockMap = await fetchStockAvailability(productsData.map((product) => product.id)); } catch { /* Admin can still inspect product records; checkout remains authoritative. */ }
 
         setProducts(
           productsData.map((p) => ({
             ...p,
+            ...stockMap[p.id],
             seller_name: profileMap.get(p.seller_id)?.full_name || "Unknown",
             seller_verified: profileMap.get(p.seller_id)?.verified ?? false,
             seller_suspended: profileMap.get(p.seller_id)?.suspended ?? false,
@@ -325,7 +334,7 @@ const AdminDashboard = () => {
 
       let query = supabase
         .from("orders")
-        .select("id,product_id,product_name,product_image_url,buyer_id,seller_id,item_amount,total_paid,status,paystack_reference,created_at,paid_at,proof_image_url,product_snapshot", { count: "exact" })
+        .select("id,product_id,product_name,product_image_url,buyer_id,seller_id,item_amount,total_paid,seller_payout,status,paystack_reference,created_at,paid_at,proof_image_url,product_snapshot", { count: "exact" })
         .order("created_at", { ascending: false });
 
       if (orderStatusFilter !== "All") query = query.eq("status", orderStatusFilter);
@@ -611,7 +620,7 @@ const AdminDashboard = () => {
         <p className="text-muted-foreground mb-6">Admin Control Panel</p>
 
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-7 h-auto">
+          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-8 h-auto">
             <TabsTrigger value="overview" className="flex items-center gap-1.5 text-xs sm:text-sm py-2">
               <ShoppingBag className="w-4 h-4" /> Overview
             </TabsTrigger>
@@ -641,6 +650,9 @@ const AdminDashboard = () => {
             <TabsTrigger value="disputes" className="flex items-center gap-1.5 text-xs sm:text-sm py-2 relative">
               <AlertTriangle className="w-4 h-4" /> Disputes
               {disputes.filter((item) => item.status !== "resolved").length > 0 && <span className="ml-1 rounded-full bg-destructive text-destructive-foreground px-1.5 text-[10px]">{disputes.filter((item) => item.status !== "resolved").length}</span>}
+            </TabsTrigger>
+            <TabsTrigger value="payouts" className="flex items-center gap-1.5 text-xs sm:text-sm py-2">
+              <Wallet className="w-4 h-4" /> Payouts
             </TabsTrigger>
             <TabsTrigger value="activity" className="flex items-center gap-1.5 text-xs sm:text-sm py-2">
               <Activity className="w-4 h-4" /> Log
@@ -744,7 +756,7 @@ const AdminDashboard = () => {
                         </td>
                         <td className="py-3 px-2 hidden md:table-cell text-muted-foreground">{product.category}</td>
                         <td className="py-3 px-2 font-semibold text-secondary">₦{Number(product.price).toLocaleString()}</td>
-                        <td className="py-3 px-2 hidden lg:table-cell text-xs text-muted-foreground">{product.stock_quantity == null ? "Not set" : `${Number(product.quantity_sold || 0)} sold / ${Math.max(0, Number(product.stock_quantity) - Number(product.quantity_sold || 0))} left`}<br />Delivery: {product.delivery_timeframe || "Not set"}</td>
+                        <td className="py-3 px-2 hidden lg:table-cell text-xs text-muted-foreground">{product.stock_quantity == null ? "Not set" : product.quantity_available === -1 ? "Stock check unavailable" : `${Number(product.quantity_sold || 0)} sold / ${Number(product.quantity_reserved || 0)} reserved / ${product.quantity_available ?? "—"} available`}<br />Delivery: {product.delivery_timeframe || "Not set"}</td>
                         <td className="py-3 px-2">
                           <div className="flex items-center justify-end gap-1">
                             {product.flagged && (
@@ -1074,7 +1086,7 @@ const AdminDashboard = () => {
                           </td>
                           <td className="p-3 min-w-36"><p>{buyer?.full_name || "Buyer profile unavailable"}</p>{buyer?.email && <p className="text-xs text-muted-foreground break-all">{buyer.email}</p>}<p className="text-xs text-muted-foreground break-all">{order.buyer_id}</p></td>
                           <td className="p-3 min-w-44"><p>{seller?.full_name || "Seller profile unavailable"}</p>{seller?.email && <p className="text-xs text-muted-foreground break-all">{seller.email}</p>}<p className="text-xs text-muted-foreground break-all">{order.seller_id}</p>{seller?.bank_name || seller?.account_number || seller?.account_name ? <div className="mt-2 rounded-md bg-muted/50 p-2 text-xs space-y-0.5"><p className="font-medium">Seller payout destination</p><p>{seller.bank_name || "Bank not provided"}</p><p className="break-all">{seller.account_number || "Account number missing"}</p><p>{seller.account_name || "Account name missing"}</p></div> : <p className="text-xs text-amber-600 mt-1">Bank details not provided</p>}</td>
-                          <td className="p-3 whitespace-nowrap"><p>Buyer paid: ₦{Number(order.total_paid ?? order.item_amount).toLocaleString()}</p><p className="text-xs text-muted-foreground">Item: ₦{Number(order.item_amount).toLocaleString()}</p></td>
+                          <td className="p-3 whitespace-nowrap"><p>Buyer paid: ₦{Number(order.total_paid ?? order.item_amount).toLocaleString()}</p><p className="text-xs text-muted-foreground">Item: ₦{Number(order.item_amount).toLocaleString()}</p><p className="text-xs font-medium text-secondary mt-1">Seller payout (manual): ₦{Number(order.seller_payout ?? order.item_amount).toLocaleString()}</p></td>
                           <td className="p-3 min-w-36"><Badge variant={order.status === "paid_held" || order.status === "released" ? "default" : order.status === "disputed" ? "destructive" : "secondary"}>{order.status === "released" ? "buyer confirmed · payout due" : order.status.replaceAll("_", " ")}</Badge>{order.paystack_reference && <p className="text-xs text-muted-foreground mt-1 break-all">Ref: {order.paystack_reference}</p>}</td>
                           <td className="p-3 min-w-28">{order.proof_image_url ? <a href={order.proof_image_url} target="_blank" rel="noreferrer" className="inline-flex flex-col gap-1 text-secondary hover:underline"><img src={order.proof_image_url} alt="Buyer proof of receipt" className="h-16 w-16 rounded-md object-cover border border-border"/><span className="text-xs">View photo</span></a> : <span className="text-xs text-muted-foreground">Not uploaded</span>}</td>
                           <td className="p-3 whitespace-nowrap text-xs">{order.created_at ? new Date(order.created_at).toLocaleString() : "—"}<p className="text-muted-foreground">{order.paid_at ? `Paid ${new Date(order.paid_at).toLocaleString()}` : "Not marked paid"}</p></td>
@@ -1137,6 +1149,16 @@ const AdminDashboard = () => {
                 })}
               </div>
             )}
+          </TabsContent>
+
+          {/* ═══ SELLER PAYOUT MANAGEMENT TAB ═══ */}
+          <TabsContent value="payouts" className="space-y-4">
+            <AdminPayoutManager
+              sellers={sellers}
+              onPayoutRecorded={async (details, sellerId) => {
+                await logAction("seller_payout_recorded", details, sellerId);
+              }}
+            />
           </TabsContent>
 
           {/* ═══ ACTIVITY LOG TAB ═══ */}

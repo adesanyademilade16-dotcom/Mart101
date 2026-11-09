@@ -70,9 +70,8 @@ const Marketplace = () => {
         .rpc("get_seller_public_info", { seller_ids: sellerIds });
 
       const profileMap = new Map((profilesData || []).map((p) => [p.user_id, p]));
-
       let stockMap: Record<string, { quantity_reserved: number; quantity_available: number | null }> = {};
-      try { stockMap = await fetchStockAvailability(productsData.map((p) => p.id)); } catch { /* Keep listing visible; checkout remains authoritative. */ }
+      try { stockMap = await fetchStockAvailability(productsData.map((p) => p.id)); } catch { /* Checkout remains authoritative if live stock lookup is unavailable. */ }
       setStockAvailability(stockMap);
 
       const merged = productsData.map((p) => ({

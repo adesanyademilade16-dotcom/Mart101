@@ -7,10 +7,10 @@ import ConditionBadge from "@/components/ConditionBadge";
 import PaymentBadge from "@/components/PaymentBadge";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import LikeButton from "@/components/LikeButton";
-import { fetchStockAvailability } from "@/lib/stockAvailability";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useSEO } from "@/hooks/useSEO";
+import { fetchStockAvailability } from "@/lib/stockAvailability";
 
 interface LikedProduct {
   id: string;
@@ -171,7 +171,7 @@ const LikedItems = () => {
                   </div>
                   <ConditionBadge condition={product.condition || "Brand New"} className="mt-1" />
                   <PaymentBadge paymentType={product.payment_type || "Pay on Delivery"} className="mt-1" />
-                  <p className={`text-[11px] mt-1 font-medium ${product.quantity_available === -1 ? "text-amber-600" : product.stock_quantity != null && product.quantity_available === 0 ? "text-destructive" : "text-muted-foreground"}`}> 
+                  <p className={`text-[11px] mt-1 font-medium ${product.quantity_available === -1 ? "text-amber-600" : product.stock_quantity != null && product.quantity_available === 0 ? "text-destructive" : "text-muted-foreground"}`}>
                     {product.stock_quantity == null ? "Stock not updated" : product.quantity_available === -1 ? "Stock status unavailable" : product.quantity_available === 0 ? "Sold out" : `${product.quantity_available ?? "—"} available · ${Number(product.quantity_sold || 0)} sold`}
                   </p>
                   <p className="text-muted-foreground text-xs flex items-center gap-1 mt-1">
