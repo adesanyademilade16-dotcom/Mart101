@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  Menu, X, Home, Store, PlusCircle, LayoutDashboard, ShieldCheck,
+  Menu, X, Home, Store, PlusCircle, LayoutDashboard, ShieldCheck, Bell,
   Info, HelpCircle, FileText, Lock, ClipboardCheck, Mail, LogOut, MessageCircle, Heart, ShoppingCart,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,7 +39,15 @@ const AppHeader = () => {
   const [loggedIn, setLoggedIn] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const { isAdmin } = useAdmin();
-  const { unreadCount } = useNotifications();
+  const {
+    unreadCount,
+    notifications,
+    notificationUnreadCount,
+    refreshNotifications,
+    markNotificationAsRead,
+    markAllNotificationsAsRead,
+  } = useNotifications();
+  const [showNotifications, setShowNotifications] = useState(false);
   const [pendingPurchases, setPendingPurchases] = useState(0);
   const navigate = useNavigate();
 
@@ -105,6 +113,26 @@ const AppHeader = () => {
           </Link>
         </div>
         <div className="flex items-center gap-2">
+          {loggedIn && (
+            <button
+              type="button"
+              onClick={() => {
+                const next = !showNotifications;
+                setShowNotifications(next);
+                if (next) refreshNotifications();
+              }}
+              className="relative rounded-full p-2 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-gold"
+              aria-label={`Notifications${notificationUnreadCount ? `, ${notificationUnreadCount} unread` : ""}`}
+              aria-expanded={showNotifications}
+            >
+              <Bell className="h-5 w-5" />
+              {notificationUnreadCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+                  {notificationUnreadCount > 99 ? "99+" : notificationUnreadCount}
+                </span>
+              )}
+            </button>
+          )}
           <InstallAppButton />
           {loggedIn ? (
             <Button asChild size="sm" className="bg-gold text-navy hover:bg-gold/90">
@@ -117,6 +145,51 @@ const AppHeader = () => {
           )}
         </div>
       </div>
+
+      {showNotifications && loggedIn && (
+        <div className="absolute right-3 top-[calc(100%-2px)] z-[60] w-[calc(100vw-1.5rem)] max-w-sm overflow-hidden rounded-xl border border-border bg-background text-foreground shadow-xl">
+          <div className="flex items-center justify-between border-b px-4 py-3">
+            <div>
+              <h3 className="font-semibold">Notifications</h3>
+              <p className="text-xs text-muted-foreground">{notificationUnreadCount} unread</p>
+            </div>
+            {notificationUnreadCount > 0 && (
+              <button
+                type="button"
+                onClick={() => markAllNotificationsAsRead()}
+                className="text-xs font-medium text-primary hover:underline"
+              >
+                Mark all as read
+              </button>
+            )}
+          </div>
+          <div className="max-h-[min(65vh,26rem)] overflow-y-auto">
+            {notifications.length === 0 ? (
+              <div className="px-4 py-10 text-center text-sm text-muted-foreground">
+                You're all caught up. New order and payment updates will appear here.
+              </div>
+            ) : notifications.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => { if (!item.is_read) markNotificationAsRead(item.id); }}
+                className={`block w-full border-b px-4 py-3 text-left transition-colors hover:bg-muted/70 ${item.is_read ? "bg-background" : "bg-primary/5"}`}
+              >
+                <div className="flex items-start gap-2">
+                  {!item.is_read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold">{item.title}</p>
+                    <p className="mt-0.5 whitespace-normal text-sm text-muted-foreground">{item.message}</p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {new Date(item.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {mounted && (
         <div className="fixed inset-0 z-50 flex">
