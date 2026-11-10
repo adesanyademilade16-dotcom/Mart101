@@ -512,10 +512,10 @@ const Dashboard = () => {
           <h1 className="text-3xl font-bold text-foreground">Seller Dashboard</h1>
           <Link
   to="/edit-profile"
-  className="inline-flex items-center justify-center gap-2
-  px-5 py-2.5 rounded-lg bg-secondary text-secondary-foreground
-  font-semibold shadow-sm hover:opacity-90
-  active:scale-95 transition-all duration-200"
+  className="inline-flex items-center gap-2 px-3 py-2
+  rounded-lg bg-secondary text-secondary-foreground
+  text-sm font-semibold shadow-sm hover:opacity-90
+  transition-all duration-200 whitespace-nowrap"
 >
   <Pencil className="w-4 h-4" />
   Edit Profile
