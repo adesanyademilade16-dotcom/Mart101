@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { ArrowLeft, Send, Paperclip, ShoppingBag, Check, CheckCheck, X, Pencil, Trash2, Smile } from "lucide-react";
+import { ArrowLeft, Send, Paperclip, ShoppingBag, Check, CheckCheck, X, Pencil, Trash2, Smile, MapPin, Navigation, Radio, StopCircle, Clock, MapPinned } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,20 @@ const EMOJIS = [
   "🙏", "👏", "🔥", "❤️", "💯", "🎉", "😴", "🤔", "😅", "🙌",
   "✅", "❌", "📦", "💰", "🛍️", "📱", "💻", "👕", "📚", "🚗",
 ];
+
+interface LocationShare {
+  id: string;
+  conversation_id: string;
+  message_id: string;
+  sender_id: string;
+  latitude: number;
+  longitude: number;
+  share_type: "once" | "live";
+  expires_at: string | null;
+  stopped_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 interface Message {
   id: string;
@@ -39,6 +53,9 @@ const Conversation = () => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const locationWatchRef = useRef<number | null>(null);
+  const activeTrackedShareRef = useRef<string | null>(null);
+  const lastLocationUpdateRef = useRef(0);
 
   const [userId, setUserId] = useState<string | null>(null);
   const [otherName, setOtherName] = useState("");
@@ -46,6 +63,12 @@ const Conversation = () => {
   const [productName, setProductName] = useState<string | null>(null);
   const [productId, setProductId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [locationShares, setLocationShares] = useState<LocationShare[]>([]);
+  const [showLocationMenu, setShowLocationMenu] = useState(false);
+  const [liveDuration, setLiveDuration] = useState(30);
+  const [sharingLocation, setSharingLocation] = useState(false);
+  const [trackedShareId, setTrackedShareId] = useState<string | null>(null);
+  const [clockNow, setClockNow] = useState(Date.now());
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -111,6 +134,17 @@ const Conversation = () => {
         .eq("conversation_id", id)
         .order("created_at", { ascending: true });
       setMessages(msgs || []);
+
+      const { data: shares, error: sharesError } = await supabase
+        .from("location_shares")
+        .select("*")
+        .eq("conversation_id", id)
+        .order("created_at", { ascending: true });
+      if (sharesError) {
+        console.error("Unable to load location shares:", sharesError);
+        toast({ title: "Some shared locations could not be loaded", variant: "destructive" });
+      }
+      setLocationShares((shares || []) as LocationShare[]);
       setLoading(false);
 
       await supabase.rpc("mark_conversation_read", { _conversation_id: id });
@@ -147,6 +181,31 @@ const Conversation = () => {
         (payload) => {
           const deletedId = (payload.old as { id: string }).id;
           setMessages((prev) => prev.filter((m) => m.id !== deletedId));
+          setLocationShares((prev) => prev.filter((share) => share.message_id !== deletedId));
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "location_shares", filter: `conversation_id=eq.${id}` },
+        (payload) => {
+          const share = payload.new as LocationShare;
+          setLocationShares((prev) => prev.some((item) => item.id === share.id) ? prev : [...prev, share]);
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "location_shares", filter: `conversation_id=eq.${id}` },
+        (payload) => {
+          const share = payload.new as LocationShare;
+          setLocationShares((prev) => prev.map((item) => item.id === share.id ? { ...item, ...share } : item));
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "location_shares", filter: `conversation_id=eq.${id}` },
+        (payload) => {
+          const deletedId = (payload.old as { id: string }).id;
+          setLocationShares((prev) => prev.filter((item) => item.id !== deletedId));
         }
       )
       .subscribe();
@@ -159,6 +218,36 @@ const Conversation = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
+
+  // Live GPS updates run only while this conversation page is open.
+  // Browsers may suspend location access when the tab is backgrounded or closed.
+  useEffect(() => {
+    const timer = window.setInterval(() => setClockNow(Date.now()), 10000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const tracked = locationShares.find((share) => share.id === activeTrackedShareRef.current);
+    const expired = tracked?.expires_at ? new Date(tracked.expires_at).getTime() <= clockNow : false;
+    if (activeTrackedShareRef.current && (!tracked || tracked.stopped_at || expired)) {
+      if (locationWatchRef.current !== null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(locationWatchRef.current);
+      }
+      locationWatchRef.current = null;
+      activeTrackedShareRef.current = null;
+      setTrackedShareId(null);
+    }
+  }, [locationShares, clockNow]);
+
+  useEffect(() => {
+    return () => {
+      if (locationWatchRef.current !== null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(locationWatchRef.current);
+      }
+      locationWatchRef.current = null;
+      activeTrackedShareRef.current = null;
+    };
+  }, []);
 
   // Close the emoji picker when tapping outside it
   useEffect(() => {
@@ -201,6 +290,157 @@ const Conversation = () => {
 
   // Enter alone inserts a newline (default textarea behavior); only the
   // Send button submits. No special-casing needed here.
+
+  const getCurrentGpsPosition = () => new Promise<GeolocationPosition>((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("This browser does not support location sharing."));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      resolve,
+      (error) => {
+        const message = error.code === error.PERMISSION_DENIED
+          ? "Location permission was denied. Allow location access in your browser settings and try again."
+          : error.code === error.POSITION_UNAVAILABLE
+            ? "Your current location is unavailable. Check your device GPS and try again."
+            : "Location request timed out. Please try again.";
+        reject(new Error(message));
+      },
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+    );
+  });
+
+  const beginLiveLocationWatch = (shareId: string) => {
+    if (!navigator.geolocation) return;
+    if (locationWatchRef.current !== null) navigator.geolocation.clearWatch(locationWatchRef.current);
+    activeTrackedShareRef.current = shareId;
+    setTrackedShareId(shareId);
+    lastLocationUpdateRef.current = Date.now();
+
+    locationWatchRef.current = navigator.geolocation.watchPosition(
+      async (position) => {
+        const now = Date.now();
+        // Limit writes to at most one GPS update every 10 seconds.
+        if (now - lastLocationUpdateRef.current < 10000) return;
+        lastLocationUpdateRef.current = now;
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
+        const { error } = await supabase
+          .from("location_shares")
+          .update({ latitude, longitude })
+          .eq("id", shareId);
+        if (error) {
+          console.error("Live location update failed:", error);
+          toast({ title: "Live location update paused", description: "Check your connection and resume sharing.", variant: "destructive" });
+          if (locationWatchRef.current !== null) navigator.geolocation.clearWatch(locationWatchRef.current);
+          locationWatchRef.current = null;
+          activeTrackedShareRef.current = null;
+          setTrackedShareId(null);
+          return;
+        }
+        setLocationShares((prev) => prev.map((share) => share.id === shareId
+          ? { ...share, latitude, longitude, updated_at: new Date().toISOString() }
+          : share));
+      },
+      (error) => {
+        console.warn("Live location watch error:", error.message);
+        if (locationWatchRef.current !== null) navigator.geolocation.clearWatch(locationWatchRef.current);
+        locationWatchRef.current = null;
+        activeTrackedShareRef.current = null;
+        setTrackedShareId(null);
+        toast({ title: "Live location updates stopped", description: "You can resume updates from the location card.", variant: "destructive" });
+      },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 }
+    );
+  };
+
+  const handleShareLocation = async (shareType: "once" | "live") => {
+    if (!id || !userId || sharingLocation) return;
+    const activeOwnShare = locationShares.find((share) =>
+      share.sender_id === userId && share.share_type === "live" && !share.stopped_at &&
+      !!share.expires_at && new Date(share.expires_at).getTime() > Date.now()
+    );
+    if (shareType === "live" && activeOwnShare) {
+      toast({ title: "You already have an active live share", description: "Stop it or resume its updates from the existing location card." });
+      setShowLocationMenu(false);
+      return;
+    }
+
+    setSharingLocation(true);
+    try {
+      // The browser asks for GPS permission only after the user taps a share action.
+      const position = await getCurrentGpsPosition();
+      const { data, error } = await supabase.rpc("create_location_share", {
+        _conversation_id: id,
+        _latitude: position.coords.latitude,
+        _longitude: position.coords.longitude,
+        _share_type: shareType,
+        _duration_minutes: shareType === "live" ? liveDuration : 60,
+      });
+      if (error) throw error;
+      const result = Array.isArray(data) ? data[0] : data;
+      const shareId = result?.created_location_share_id;
+      if (!shareId) throw new Error("The location was sent, but its share record could not be confirmed. Reload the chat.");
+
+      const { data: createdShare, error: fetchError } = await supabase
+        .from("location_shares")
+        .select("*")
+        .eq("id", shareId)
+        .single();
+      if (fetchError) throw fetchError;
+      const share = createdShare as LocationShare;
+      setLocationShares((prev) => prev.some((item) => item.id === share.id) ? prev : [...prev, share]);
+      setShowLocationMenu(false);
+      toast({ title: shareType === "live" ? "Live location shared" : "Location shared" });
+      if (shareType === "live") beginLiveLocationWatch(share.id);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to share your location.";
+      toast({ title: "Location not shared", description: message, variant: "destructive" });
+    } finally {
+      setSharingLocation(false);
+    }
+  };
+
+  const handleResumeLiveLocation = async (share: LocationShare) => {
+    if (sharingLocation) return;
+    setSharingLocation(true);
+    try {
+      const position = await getCurrentGpsPosition();
+      const { error } = await supabase
+        .from("location_shares")
+        .update({ latitude: position.coords.latitude, longitude: position.coords.longitude })
+        .eq("id", share.id);
+      if (error) throw error;
+      setLocationShares((prev) => prev.map((item) => item.id === share.id
+        ? { ...item, latitude: position.coords.latitude, longitude: position.coords.longitude, updated_at: new Date().toISOString() }
+        : item));
+      beginLiveLocationWatch(share.id);
+      toast({ title: "Live location updates resumed" });
+    } catch (error) {
+      toast({ title: "Could not resume live location", description: error instanceof Error ? error.message : "Try again.", variant: "destructive" });
+    } finally {
+      setSharingLocation(false);
+    }
+  };
+
+  const handleStopLiveLocation = async (share: LocationShare) => {
+    const { data, error } = await supabase
+      .from("location_shares")
+      .update({ stopped_at: new Date().toISOString() })
+      .eq("id", share.id)
+      .select("*")
+      .single();
+    if (error) {
+      toast({ title: "Could not stop live location", description: error.message, variant: "destructive" });
+      return;
+    }
+    if (locationWatchRef.current !== null && navigator.geolocation) navigator.geolocation.clearWatch(locationWatchRef.current);
+    locationWatchRef.current = null;
+    activeTrackedShareRef.current = null;
+    setTrackedShareId(null);
+    setLocationShares((prev) => prev.map((item) => item.id === share.id ? data as LocationShare : item));
+    toast({ title: "Live location sharing stopped" });
+  };
 
   const handleEmojiClick = (emoji: string) => {
     setText((prev) => prev + emoji);
@@ -362,11 +602,18 @@ const Conversation = () => {
               const isMine = msg.sender_id === userId;
               const isEditing = editingMessageId === msg.id;
               const showActions = activeMessageId === msg.id;
+              const locationShare = locationShares.find((share) => share.message_id === msg.id);
+              const liveExpired = !!locationShare?.expires_at && new Date(locationShare.expires_at).getTime() <= clockNow;
+              const liveActive = !!locationShare && locationShare.share_type === "live" && !locationShare.stopped_at && !liveExpired;
+              const isTrackingThisShare = trackedShareId === locationShare?.id;
+              const mapsUrl = locationShare
+                ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${locationShare.latitude},${locationShare.longitude}`)}`
+                : "";
 
               return (
                 <div key={msg.id} className={`flex flex-col ${isMine ? "items-end" : "items-start"}`}>
                   <div
-                    onClick={() => isMine && !msg.image_url && setActiveMessageId(showActions ? null : msg.id)}
+                    onClick={() => isMine && !msg.image_url && !locationShare && setActiveMessageId(showActions ? null : msg.id)}
                     className={`max-w-[75%] rounded-2xl px-4 py-2 ${isMine ? "cursor-pointer" : ""} ${
                       isMine
                         ? "bg-secondary text-secondary-foreground rounded-br-sm"
@@ -388,6 +635,47 @@ const Conversation = () => {
                       </div>
                     )}
 
+                    {locationShare && (
+                      <div className="mt-2 min-w-[200px] max-w-full rounded-xl border border-border/60 bg-background/70 p-3" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-start gap-2">
+                          <div className="rounded-full bg-secondary/15 p-2 text-secondary"><MapPinned className="h-5 w-5" /></div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold">{locationShare.share_type === "live" ? "Live location" : "Shared location"}</p>
+                            <p className="mt-0.5 text-[11px] opacity-75">
+                              {locationShare.share_type === "once"
+                                ? "A pinned location"
+                                : locationShare.stopped_at
+                                  ? "Sharing stopped"
+                                  : liveExpired
+                                    ? "Sharing expired"
+                                    : `Temporary sharing · expires ${new Date(locationShare.expires_at!).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}
+                            </p>
+                            {locationShare.share_type === "live" && !locationShare.stopped_at && !liveExpired && (
+                              <p className="mt-1 text-[10px] opacity-70">Last update: {new Date(locationShare.updated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
+                            )}
+                          </div>
+                        </div>
+                        <a href={mapsUrl} target="_blank" rel="noreferrer" className="mt-3 flex items-center justify-center gap-2 rounded-lg bg-secondary px-3 py-2 text-xs font-semibold text-secondary-foreground hover:opacity-90">
+                          <Navigation className="h-3.5 w-3.5" /> Open in Google Maps
+                        </a>
+                        {isMine && liveActive && (
+                          <div className="mt-2 flex gap-2">
+                            {!isTrackingThisShare && (
+                              <button type="button" onClick={() => handleResumeLiveLocation(locationShare)} disabled={sharingLocation} className="flex-1 rounded-lg border border-border px-2 py-2 text-[11px] font-medium hover:bg-muted disabled:opacity-50">
+                                Resume updates
+                              </button>
+                            )}
+                            <button type="button" onClick={() => handleStopLiveLocation(locationShare)} className="flex-1 rounded-lg border border-destructive/40 px-2 py-2 text-[11px] font-medium text-destructive hover:bg-destructive/10">
+                              <StopCircle className="mr-1 inline h-3.5 w-3.5" /> Stop sharing
+                            </button>
+                          </div>
+                        )}
+                        {locationShare.share_type === "live" && liveActive && !isMine && (
+                          <p className="mt-2 text-[10px] opacity-70">Updates are available while the sender's chat is open and their device permits location access.</p>
+                        )}
+                      </div>
+                    )}
+
                     {isEditing ? (
                       <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                         <input
@@ -401,7 +689,7 @@ const Conversation = () => {
                         <button onClick={cancelEdit} className="text-xs shrink-0 opacity-70">Cancel</button>
                       </div>
                     ) : (
-                      msg.content && <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
+                      msg.content && !locationShare && <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
                     )}
 
                     <div className={`flex items-center gap-1 mt-1 ${isMine ? "justify-end" : "justify-start"}`}>
@@ -423,7 +711,7 @@ const Conversation = () => {
                     </div>
                   </div>
 
-                  {isMine && showActions && !isEditing && msg.content && (
+                  {isMine && showActions && !isEditing && msg.content && !locationShare && (
                     <div className="flex items-center gap-3 mt-1 px-1">
                       <button onClick={() => startEdit(msg)} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
                         <Pencil className="w-3 h-3" /> Edit
@@ -459,6 +747,35 @@ const Conversation = () => {
 
         {/* WhatsApp-style input row: emoji (left) · rounded bar with attachment inside · circular send (right) */}
         <div className="relative py-3 border-t border-border/50">
+          {showLocationMenu && (
+            <div className="absolute bottom-full right-0 z-20 mb-2 w-72 rounded-2xl border border-border bg-card p-3 shadow-xl">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-sm font-semibold">Share your location</p>
+                <button type="button" onClick={() => setShowLocationMenu(false)} className="rounded-full p-1 text-muted-foreground hover:bg-muted" aria-label="Close location menu"><X className="h-4 w-4" /></button>
+              </div>
+              <button type="button" onClick={() => handleShareLocation("once")} disabled={sharingLocation} className="flex w-full items-center gap-3 rounded-xl p-3 text-left hover:bg-muted disabled:opacity-50">
+                <MapPin className="h-5 w-5 text-secondary" />
+                <span><span className="block text-sm font-medium">Send current location</span><span className="block text-[11px] text-muted-foreground">Share one pinned location</span></span>
+              </button>
+              <div className="my-2 border-t border-border/60" />
+              <div className="flex items-center justify-between gap-2 px-3 pb-2">
+                <span className="text-sm font-medium">Live location</span>
+                <select value={liveDuration} onChange={(e) => setLiveDuration(Number(e.target.value))} className="rounded-lg border border-border bg-background px-2 py-1.5 text-xs">
+                  <option value={15}>15 minutes</option>
+                  <option value={30}>30 minutes</option>
+                  <option value={60}>1 hour</option>
+                  <option value={120}>2 hours</option>
+                </select>
+              </div>
+              <button type="button" onClick={() => handleShareLocation("live")} disabled={sharingLocation} className="flex w-full items-center gap-3 rounded-xl p-3 text-left hover:bg-muted disabled:opacity-50">
+                <Radio className="h-5 w-5 text-secondary" />
+                <span><span className="block text-sm font-medium">Start live sharing</span><span className="block text-[11px] text-muted-foreground">Updates while this chat is open</span></span>
+              </button>
+              {sharingLocation && <p className="px-3 pb-1 text-[11px] text-muted-foreground">Getting your location…</p>}
+              <p className="mt-2 flex items-start gap-1.5 px-3 text-[10px] leading-relaxed text-muted-foreground"><Clock className="mt-0.5 h-3 w-3 shrink-0" /> Live sharing expires automatically. You can stop it at any time. GPS may pause if your browser backgrounds or closes.</p>
+            </div>
+          )}
+
           {showEmojiPicker && (
             <div
               ref={emojiPickerRef}
@@ -503,6 +820,15 @@ const Conversation = () => {
                 aria-label="Attach image"
               >
                 <Paperclip className="w-5 h-5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowEmojiPicker(false); setShowLocationMenu((prev) => !prev); }}
+                className={`shrink-0 p-1.5 transition-colors ${showLocationMenu ? "text-secondary" : "text-muted-foreground hover:text-foreground"}`}
+                aria-label="Share location"
+                title="Share location"
+              >
+                <MapPin className="w-5 h-5" />
               </button>
               <textarea
                 ref={textareaRef}
