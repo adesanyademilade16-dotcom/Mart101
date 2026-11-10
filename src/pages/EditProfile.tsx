@@ -203,9 +203,16 @@ const EditProfile = () => {
     <div className="min-h-screen bg-background">
       <AppHeader />
       <main className="container mx-auto px-4 py-6 max-w-md">
-        <Link to="/dashboard" className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors mb-6">
-          <ArrowLeft className="w-4 h-4" /> Back to Dashboard
-        </Link>
+        <Link
+  to="/dashboard"
+  className="inline-flex items-center gap-2 px-3 py-2 mb-6
+  rounded-lg border border-border bg-card text-foreground
+  text-sm font-medium shadow-sm hover:bg-muted
+  transition-all duration-200 w-fit"
+>
+  <ArrowLeft className="w-4 h-4" />
+  Back to Dashboard
+</Link>
 
         {!unlocked ? (
           <form onSubmit={handleVerifyPassword} className="bg-card rounded-2xl border border-border/50 shadow-sm p-6 space-y-4">
