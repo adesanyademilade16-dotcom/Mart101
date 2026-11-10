@@ -173,9 +173,16 @@ const MyPurchases = () => {
       </header>
 
       <main className="container mx-auto px-4 py-6 max-w-2xl">
-        <Link to="/marketplace" className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground mb-6">
-          <ArrowLeft className="w-4 h-4" /> Back to Marketplace
-        </Link>
+        <Link
+  to="/marketplace"
+  className="inline-flex items-center gap-2 px-4 py-2.5 mb-6
+  rounded-lg border border-border bg-card text-foreground
+  font-medium shadow-sm hover:bg-muted hover:border-secondary
+  transition-all duration-200 w-fit"
+>
+  <ArrowLeft className="w-4 h-4" />
+  Back to Marketplace
+</Link>
 
         <h1 className="text-2xl font-bold text-foreground mb-6">My Purchases</h1>
 
