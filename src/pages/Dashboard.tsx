@@ -508,21 +508,24 @@ const Dashboard = () => {
       <AppHeader />
       <main className="container mx-auto px-4 py-8 max-w-4xl">
         
-<div className="flex flex-nowrap items-center justify-between gap-2 mb-6">
-  <h1 className="text-xl sm:text-3xl font-bold text-foreground whitespace-nowrap">
-    Seller Dashboard
+<div className="flex items-center justify-between gap-3 mb-6">
+  <h1 className="text-3xl font-bold text-primary">
+    Dashboard
   </h1>
 
+  {/* Edit Profile button here */}
+</div>
+
   <Link
-    to="/edit-profile"
-    className="inline-flex items-center justify-center gap-1 px-2 py-1
-    rounded-lg bg-secondary text-secondary-foreground
-    text-xs sm:text-sm font-semibold shadow-sm hover:opacity-90
-    transition-all duration-200 whitespace-nowrap shrink-0"
-  >
-    <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-    Edit Profile
-  </Link>
+  to="/edit-profile"
+  className="inline-flex items-center gap-2 px-3 py-2
+  rounded-lg bg-secondary text-secondary-foreground
+  text-sm font-semibold shadow-sm hover:opacity-90
+  transition-all duration-200 whitespace-nowrap"
+>
+  <Pencil className="w-4 h-4" />
+  Edit Profile
+</Link>
 </div>
 
 
