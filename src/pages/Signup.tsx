@@ -102,9 +102,16 @@ if (!EMAIL_REGEX.test(form.email.trim())) {
     <div className="min-h-screen bg-navy flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Link to="/marketplace" className="inline-flex items-center text-primary-foreground/70 hover:text-secondary mb-6 transition-colors">
-            <ArrowLeft className="w-4 h-4 mr-1" /> Back to Marketplace
-          </Link>
+          <Link
+  to="/marketplace"
+  className="inline-flex items-center gap-2 px-4 py-2.5 mb-6
+  rounded-lg border border-white/30 bg-white/10
+  text-white font-medium hover:bg-white/20
+  transition-all duration-200"
+>
+  <ArrowLeft className="w-4 h-4" />
+  Back to Marketplace
+</Link>
           <div className="flex items-center justify-center gap-2 mb-2">
             <BrandLogo size="md" />
             <span className="font-cursive text-3xl text-gold">MART101</span>
