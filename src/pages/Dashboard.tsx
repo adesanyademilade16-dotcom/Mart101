@@ -512,7 +512,7 @@ const Dashboard = () => {
           <h1 className="text-3xl font-bold text-foreground">Seller Dashboard</h1>
           <Link
   to="/edit-profile"
-  className="inline-flex items-center gap-2 px-3 py-2
+  className="inline-flex items-center gap-1 px-2 py-1
   rounded-lg bg-secondary text-secondary-foreground
   text-sm font-semibold shadow-sm hover:opacity-90
   transition-all duration-200 whitespace-nowrap"
