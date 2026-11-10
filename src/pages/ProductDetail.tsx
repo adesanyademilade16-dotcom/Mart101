@@ -279,16 +279,9 @@ const ProductDetail = () => {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
         <p className="text-xl text-foreground font-semibold">Product not found</p>
-       <Link
-  to="/marketplace"
-  className="inline-flex items-center gap-2 px-4 py-2.5 mb-6
-  rounded-lg border border-border bg-card text-foreground
-  font-medium shadow-sm hover:bg-muted hover:border-secondary
-  transition-all duration-200 w-fit"
->
-  <ArrowLeft className="w-4 h-4" />
-  Back to Marketplace
-</Link>
+        <Link to="/marketplace">
+          <Button variant="secondary">Back to Marketplace</Button>
+        </Link>
       </div>
     );
   }
@@ -307,11 +300,15 @@ const ProductDetail = () => {
 
       <main className="container mx-auto px-4 py-6 max-w-4xl">
         <Link
-          to="/marketplace"
-          className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors mb-6"
-        >
-          <ArrowLeft className="w-4 h-4" /> Back to Marketplace
-        </Link>
+  to="/marketplace"
+  className="inline-flex items-center gap-2 px-4 py-2.5 mb-6
+  rounded-lg border border-border bg-card text-foreground
+  font-medium shadow-sm hover:bg-muted hover:border-secondary
+  transition-all duration-200 w-fit"
+>
+  <ArrowLeft className="w-4 h-4" />
+  Back to Marketplace
+</Link>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Images */}
