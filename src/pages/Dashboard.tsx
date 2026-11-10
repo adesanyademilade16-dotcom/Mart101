@@ -508,7 +508,7 @@ const Dashboard = () => {
       <AppHeader />
       <main className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
-          <h1 className="text-3xl font-bold text-foreground">Seller Dashboard</h1>
+          <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
           <Link
   to="/edit-profile"
   className="inline-flex items-center gap-2 px-3 py-2
