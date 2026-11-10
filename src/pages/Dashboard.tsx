@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { CATEGORIES } from "@/lib/categories";
 import { PRODUCT_CONDITIONS, isUsedCondition } from "@/lib/conditions";
 import { sanitizeError } from "@/lib/errors";
+import { Pencil } from "lucide-react";
 
 interface Product {
   id: string;
@@ -509,9 +510,16 @@ const Dashboard = () => {
       <main className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
           <h1 className="text-3xl font-bold text-foreground">Seller Dashboard</h1>
-          <Link to="/edit-profile" className="text-sm font-medium text-secondary hover:underline">
-            Edit Profile
-          </Link>
+          <Link
+  to="/edit-profile"
+  className="inline-flex items-center justify-center gap-2
+  px-5 py-2.5 rounded-lg bg-secondary text-secondary-foreground
+  font-semibold shadow-sm hover:opacity-90
+  active:scale-95 transition-all duration-200"
+>
+  <Pencil className="w-4 h-4" />
+  Edit Profile
+</Link>
         </div>
 
         {/* Profile Card */}
