@@ -279,9 +279,16 @@ const ProductDetail = () => {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
         <p className="text-xl text-foreground font-semibold">Product not found</p>
-        <Link to="/marketplace">
-          <Button variant="secondary">Back to Marketplace</Button>
-        </Link>
+       <Link
+  to="/marketplace"
+  className="inline-flex items-center gap-2 px-4 py-2.5 mb-6
+  rounded-lg border border-border bg-card text-foreground
+  font-medium shadow-sm hover:bg-muted hover:border-secondary
+  transition-all duration-200 w-fit"
+>
+  <ArrowLeft className="w-4 h-4" />
+  Back to Marketplace
+</Link>
       </div>
     );
   }
