@@ -507,16 +507,9 @@ const Dashboard = () => {
     <div className="min-h-screen bg-background">
       <AppHeader />
       <main className="container mx-auto px-4 py-8 max-w-4xl">
-        
-<div className="flex items-center justify-between gap-3 mb-6">
-  <h1 className="text-3xl font-bold text-primary">
-    Dashboard
-  </h1>
-
-  {/* Edit Profile button here */}
-</div>
-
-  <Link
+        <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
+          <h1 className="text-3xl font-bold text-foreground">Seller Dashboard</h1>
+          <Link
   to="/edit-profile"
   className="inline-flex items-center gap-2 px-3 py-2
   rounded-lg bg-secondary text-secondary-foreground
@@ -526,8 +519,7 @@ const Dashboard = () => {
   <Pencil className="w-4 h-4" />
   Edit Profile
 </Link>
-</div>
-
+        </div>
 
         {/* Profile Card */}
         <div className="glass-card p-6 mb-6">
